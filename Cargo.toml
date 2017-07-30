@@ -1,0 +1,17 @@
+[package]
+name = "mod_example"
+version = "0.1.0"
+authors = ["linfeng.yuan <linfeng.yuan@woqutech.com>"]
+
+[dependencies]
+error-chain = "*"
+regex = "*"
+toml = "0.4"
+serde = "*"
+serde_derive = "*"
+shellexpand = "1.0.0"
+notify= { git = "https://github.com/passcod/notify.git" }
+ssh2 = "*"
+clap = "*"
+glob = "*"
+

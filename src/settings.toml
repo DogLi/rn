@@ -1,0 +1,18 @@
+global_user = "root"
+#global_key = "~/.ssh/id_rsa"
+global_password = "nogame"
+
+[[projects]]
+name = "default"
+src = "~/Desktop/cloud/"
+dest = "~/qdata-cloud/"
+exclude = [
+            ".git",
+            "db.yaml",
+            ".idea",
+            ".vscode",
+            "qflame",
+            "static",
+            "test",
+            "prometheus.yaml",
+        ]
