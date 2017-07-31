@@ -11,7 +11,6 @@ extern crate shellexpand;
 #[macro_use]extern crate error_chain;
 #[macro_use] extern crate serde_derive;
 
-use notify::*;
 use utils::*;
 use std::path::{Path, PathBuf};
 use std::fmt::Debug;
@@ -21,6 +20,7 @@ use std::fs;
 use std::io;
 use glob::glob;
 use shellexpand::{tilde, tilde_with_context};
+use notify::DebouncedEvent;
 
 
 #[cfg(not(target_os="windows"))] const TIMEOUT_MS: u64 = 100;
@@ -28,18 +28,18 @@ use shellexpand::{tilde, tilde_with_context};
 
 impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
 where P: AsRef<Path>{
-    fn handle_events(&mut self){
-        println!("{:?}", self.events);
-        for &(ref path, _op, session) in self.events.iter() {
-            let file_tail = path.strip_prefix(self.src_path.as_ref()).unwrap();
-            let dest_file = self.dest_root.as_ref().join(file_tail);
-            println!("dest file: {:?}", dest_file);
-            match _op {
-                op::RENAME => println!("rename ... {:?}", path),
-                _ => println!("path: {:?},  op: {:?}", path,  _op)
-            }
+    fn handle_events(&mut self, event: &DebouncedEvent){
+        match (event) {
+            &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
+            &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
+            &DebouncedEvent::Create(ref path) => {println!("notice create: {:?}", path);},
+            &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
+            &DebouncedEvent::Chmod(ref path) => {println!("notice chmod: {:?}", path);},
+            &DebouncedEvent::Remove(ref path) => {println!("notice rename: {:?}", path);},
+            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {println!("notice : {:?} -> {:?}", path_src, path_dest);},
+            &DebouncedEvent::Rescan => {},
+            &DebouncedEvent::Error(ref e, ref path) => {println!("error {:?}: {:?}", &path, e)},
         }
-        self.events.clear();
     }
 }
 
@@ -92,7 +92,6 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
         dest_root: dest_root,
         tx: tx,
         rx:rx,
-        events: Vec::new(),
         timeout: TIMEOUT_MS,
         sftp: sftp,
         ignore_paths: ignore_paths,
