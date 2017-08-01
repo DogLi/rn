@@ -102,7 +102,7 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
 
 pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
     where S: AsRef<str> + Debug + PartialEq,
-          P: AsRef<Path>
+          P: AsRef<Path> + Debug
 {
     // get the global config
     let global_config = toml_parser::get_config(config_path).unwrap();

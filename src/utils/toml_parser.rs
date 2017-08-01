@@ -1,4 +1,5 @@
 use toml;
+use std::process;
 use errors::*;
 use std::fmt::Debug;
 use std::path::Path;
@@ -6,6 +7,7 @@ use serde::de::DeserializeOwned;
 use utils::util::load_file;
 use std::cmp::PartialEq;
 use shellexpand::tilde;
+
 
 
 #[derive(Debug, Deserialize)]
@@ -27,10 +29,13 @@ pub struct project{
 }
 
 pub fn get_config<P>(toml_path: P) -> Result<global_config>
-where P: AsRef<Path>
+where P: AsRef<Path> + Debug
 {
     // get the project settings config from *.toml file
-    let toml_string = load_file(toml_path)?;
+    let toml_string = match load_file(&toml_path) {
+        Ok(some_string) => some_string,
+        Err(ref e) => {println!("error to read file {:?}: {:?}", toml_path, e.to_string()); process::exit(1)},
+    };
     let mut g_config: global_config = toml::from_str(toml_string.as_str())?;
     g_config.global_key = match g_config.global_key{
         None => None,

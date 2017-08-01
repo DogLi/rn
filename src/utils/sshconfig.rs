@@ -7,6 +7,7 @@ use std::io::{BufReader};
 use std::fs::File;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::fmt::Debug;
 use shellexpand::tilde;
 
 
@@ -35,8 +36,18 @@ impl Host {
 }
 
 pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
-    where P: AsRef<Path> {
-    let mut f = File::open(path.as_ref())?;
+    where P: AsRef<Path> + Debug{
+    let mut result = HashMap::new();
+
+    let f;
+    let read_result = File::open(path.as_ref());
+    match read_result {
+        Ok(something) => f = something,
+        Err(e) => {
+            println!("open file {:?} failed: {:?}", path, e.to_string());
+            return Ok(result);
+        },
+    }
     let mut file = BufReader::new(&f);
 
     let mut sections = Vec::new();
@@ -68,7 +79,6 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
         sections.push(sub_section);
     }
 
-    let mut result = HashMap::new();
     for section in sections.iter() {
         // 虽然传入的是None, 但是需要将类型带上,否则会出现`cannot infer type for P`
         // 错误,参见: https://github.com/rust-lang/rust/issues/39797

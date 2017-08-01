@@ -14,4 +14,3 @@ notify= { git = "https://github.com/passcod/notify.git" }
 ssh2 = "*"
 clap = "*"
 glob = "*"
-
