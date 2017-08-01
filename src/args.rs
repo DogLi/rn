@@ -1,5 +1,5 @@
 use clap;
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 
 pub fn get_args() -> clap::ArgMatches<'static> {
     clap::App::new("rn")
@@ -34,35 +34,5 @@ pub fn get_args() -> clap::ArgMatches<'static> {
                  .short("w")
                  .long("watch")
                  .help("watch for file change!"))
-        .get_matches()
-}
-
-pub fn get_args2() -> clap::ArgMatches<'static> {
-    App::new("My Super Program")
-        //.setting(clap::AppSettings::SubcommandRequiredElseHelp)
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about("a realtime file transformer.")
-        .arg(Arg::with_name("config")
-            .short("c")
-            .long("config")
-            .value_name("FILE")
-            .help("Sets a custom config file")
-            .takes_value(true))
-        .arg(clap::Arg::with_name("project")
-            .short("p")
-            .long("project")
-            .value_name("PROJECT")
-            .takes_value(true)
-            .default_value("default")
-            .help("set the project name to be deployed!"))
-        .arg(Arg::with_name("v")
-            .short("v")
-            .multiple(true)
-            .help("Sets the level of verbosity"))
-        .arg(clap::Arg::with_name("watch")
-            .short("w")
-            .long("watch")
-            .help("watch for file change!"))
         .get_matches()
 }

@@ -1,6 +1,5 @@
 use regex::Regex;
 use errors::*;
-use std::rc::Rc;
 use std::path::{Path, PathBuf};
 use std::io::prelude::*;
 use std::io::{BufReader};

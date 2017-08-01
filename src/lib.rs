@@ -26,10 +26,25 @@ use notify::DebouncedEvent;
 #[cfg(not(target_os="windows"))] const TIMEOUT_MS: u64 = 100;
 #[cfg(target_os="windows")] const TIMEOUT_MS: u64 = 2000; // windows can take a while
 
+fn get_dest_path<'a, P>(path: &'a P, src_path: &'a P, dest_root: &'a P) ->  Option<String>
+where P: AsRef<Path> {
+    match path.as_ref().strip_prefix(src_path) {
+        Ok(ref p) => {
+            let dest_path = dest_root.as_ref().join(p);
+            Some(dest_path.to_str().unwrap().to_string())
+        },
+        Err(e) => {
+            println!("can not get post_fix for {:?}", src_path.as_ref());
+            None
+        },
+    }
+}
+
+// 处理文件更改事件
 impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
 where P: AsRef<Path>{
     fn handle_events(&mut self, event: &DebouncedEvent){
-        match (event) {
+        match event {
             &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
             &DebouncedEvent::Create(ref path) => {println!("notice create: {:?}", path);},
@@ -43,7 +58,7 @@ where P: AsRef<Path>{
     }
 }
 
-
+// 获取忽略文件
 fn get_dir_ignored<P, S>(root: P, exclude: Option<&Vec<S>>, ignore_path: &mut Vec<String>) -> io::Result<()>
 where P: AsRef<Path> + PartialEq, S: AsRef<str>{
     if !root.as_ref().metadata()?.file_type().is_dir() {
@@ -160,11 +175,9 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
     }).into_owned();
     println!("dest path: {}", dest_root);
 
-    // get
+    // get ignore dir
     let mut V = Vec::new();
     get_dir_ignored(&project.src, project.exclude.as_ref(), &mut V);
-    println!("aaaaaaaaaaaaaaaaaaaaaaaaaaa\n{:?}", V);
-    println!("aaaaaaaaaaaaaaaaaaaaaaaaaaa");
 
     //start watch
     let ignore_paths = if V.len() > 0 {Some(V)} else {None};
