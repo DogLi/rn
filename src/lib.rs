@@ -23,31 +23,18 @@ use shellexpand::{tilde, tilde_with_context};
 use notify::DebouncedEvent;
 
 
-#[cfg(not(target_os="windows"))] const TIMEOUT_MS: u64 = 100;
-#[cfg(target_os="windows")] const TIMEOUT_MS: u64 = 2000; // windows can take a while
-
-fn get_dest_path<'a, P>(path: &'a P, src_path: &'a P, dest_root: &'a P) ->  Option<String>
-where P: AsRef<Path> {
-    match path.as_ref().strip_prefix(src_path) {
-        Ok(ref p) => {
-            let dest_path = dest_root.as_ref().join(p);
-            Some(dest_path.to_str().unwrap().to_string())
-        },
-        Err(e) => {
-            println!("can not get post_fix for {:?}", src_path.as_ref());
-            None
-        },
-    }
-}
-
-// 处理文件更改事件
 impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
 where P: AsRef<Path>{
+    // 处理文件更改事件
     fn handle_events(&mut self, event: &DebouncedEvent){
         match event {
             &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
-            &DebouncedEvent::Create(ref path) => {println!("notice create: {:?}", path);},
+            &DebouncedEvent::Create(ref path) => {
+                println!("notice create: {:?}, get dest path:{:}", path, self.get_dest_path(path).unwrap());
+                let dest_path = self.get_dest_path(path).unwrap();
+                self.sftp.mkdir(&dest_path);
+            },
             &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::Chmod(ref path) => {println!("notice chmod: {:?}", path);},
             &DebouncedEvent::Remove(ref path) => {println!("notice rename: {:?}", path);},
@@ -107,7 +94,6 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
         dest_root: dest_root,
         tx: tx,
         rx:rx,
-        timeout: TIMEOUT_MS,
         sftp: sftp,
         ignore_paths: ignore_paths,
     };

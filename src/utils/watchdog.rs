@@ -15,7 +15,6 @@ where P: AsRef<Path>{
     pub ignore_paths: Option<Vec<P>>,
     pub tx: Sender<DebouncedEvent>,
     pub rx: Receiver<DebouncedEvent>,
-    pub timeout: u64,
     pub sftp: &'a ssh::SftpClient<'a>,
 }
 
@@ -23,8 +22,23 @@ pub trait watch{
     fn handle_events(&mut self, event: &DebouncedEvent);
 }
 
+
 impl <'a, T> WatchDog<'a, T>
 where T: AsRef<Path>{
+
+    // 得到目标文件
+    pub fn get_dest_path<Q: AsRef<Path>>(&self, path: &Q) ->  Option<String>{
+        match path.as_ref().strip_prefix(self.src_path.as_ref()) {
+            Ok(ref p) => {
+                let dest_path = self.dest_root.as_ref().join(p);
+                Some(dest_path.to_str().unwrap().to_string())
+            },
+            Err(e) => {
+                println!("can not get post_fix for {:?}", self.src_path.as_ref());
+                None
+            },
+        }
+    }
 
     fn watch(& mut self) {
         // block to wait file change
