@@ -75,12 +75,7 @@ impl <'a> SftpClient<'a> {
         }
     }
 
-    pub fn mkdir<T: AsRef<Path>>(&self, path: T){
-        // TODO: get mode from src path
-        // use std::fs;
-        // let permissions = fs::metadata(src_path)?.permissions()
-        // let mode = permissions.mode() // return u32
-        let mode = 0o755;
+    pub fn mkdir<T: AsRef<Path>>(&self, path: T, mode: i32){
         self.sftp.mkdir(path.as_ref(), mode).unwrap();
     }
 
@@ -107,5 +102,5 @@ pub fn test() {
     let ssh_client = SSHClient::new("192.168.75.129", 22, "ubuntu", Some("nogame"), None::<&Path>);
     ssh_client.run_cmd("ls /tmp");
     let client = SftpClient::new(&ssh_client);
-    client.mkdir("/tmp/abc");
+    client.mkdir("/tmp/abc", 0755);
 }

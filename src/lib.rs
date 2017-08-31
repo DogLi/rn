@@ -21,6 +21,7 @@ use std::io;
 use glob::glob;
 use shellexpand::{tilde, tilde_with_context};
 use notify::DebouncedEvent;
+use std::os::unix::fs::PermissionsExt;
 
 
 impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
@@ -33,7 +34,22 @@ where P: AsRef<Path>{
             &DebouncedEvent::Create(ref path) => {
                 println!("notice create: {:?}, get dest path:{:}", path, self.get_dest_path(path).unwrap());
                 let dest_path = self.get_dest_path(path).unwrap();
-                self.sftp.mkdir(&dest_path);
+                let file_type = fs::metadata(path).unwrap().file_type();
+                if file_type.is_dir() {
+                    // get mode from src path
+                    let permissions = fs::metadata(path).unwrap().permissions();
+                    let mode = permissions.mode() as i32; // return u32
+                    self.sftp.mkdir(&dest_path, mode);
+                } else if file_type.is_file() {
+                    // ssh2::session::scp_send()
+                    // TODO: get the content of file
+                    let mut content = String::new();
+                    self.sftp.create(dest_path, &content);
+                } else if file_type.is_symlink() {
+                    //TODO: get the realpath of the link
+                    // get the remote realpath
+                    // creak the link
+                }
             },
             &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::Chmod(ref path) => {println!("notice chmod: {:?}", path);},
@@ -151,7 +167,10 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
-    let common_home = format!("/home/{}", user);
+    let common_home = match user {
+        "root".to_string() => "/root",
+        _ => format!("/home/{}", user),
+    };
     let dest_root = tilde_with_context(project.dest.as_str(), ||{
         if user == "root".to_string() {
             Some(Path::new("/root").into())
