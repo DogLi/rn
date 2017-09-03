@@ -86,7 +86,6 @@ exclude = [".git", "prometheus.yaml"]
 "##;
         tmp_file.write_all(content.as_bytes()).unwrap();
 
-
         let global_config = get_config(tmp_path).unwrap();
         println!("global config:\n{:?}", global_config);
 

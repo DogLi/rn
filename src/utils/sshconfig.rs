@@ -11,7 +11,7 @@ use shellexpand::tilde;
 
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Host {
     pub HostName: String,
     pub IdentityFile: Option<PathBuf>,
@@ -37,7 +37,7 @@ impl Host {
 /// 解析ssh config文件
 ///
 pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
-    where P: AsRef<Path> + Debug{
+where P: AsRef<Path> + Debug{
     let mut result = HashMap::new();
 
     let f = File::open(path.as_ref())?;
@@ -109,6 +109,7 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
 /// q123 -> 192.168.1.123
 /// 20 -> 10.10.20.20
 /// 30.20 -> 10.10.30.20
+/// other_dns -> other_dns
 pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String>{
     let hostname = hostname.as_ref();
     let ip = if  Regex::new(r"^\d+$")?.is_match(hostname) {
@@ -128,24 +129,53 @@ pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String>{
 mod tests {
     use super::*;
 
-    #[test]
-    #[ignore]
-    fn test_host() {
-        let h = Host::new("10.10.90.11", "root", Some("~/.ssh/config"), None, None);
-        println!("{:?}", h);
-    }
 
     #[test]
-    #[ignore]
     fn test_parse_config() {
-        let v = parse_ssh_config("/Users/yuanlinfeng/.ssh/config");
-        println!("{:?}", v);
+        let tmp_path = Path::new("/tmp/ssh_config");
+        let mut tmp_file = File::create(&tmp_path).unwrap();
+        let content = r##"Host pi
+    HostName 10.10.80.83
+    User pi
+    PreferredAuthentications publickey
+    IdentityFile ~/.ssh/id_rsa_foyu.pem
+
+Host ubuntu
+    HostName 192.168.75.129
+    User ubuntu
+    PreferredAuthentications publickey
+    #IdentityFile ~/.ssh/id_rsa
+"##;
+        tmp_file.write_all(content.as_bytes()).unwrap();
+        let v = parse_ssh_config(tmp_path).unwrap();
+
+        let mut result = HashMap::new();
+        result.insert("pi".to_string(), Host{
+            HostName: "10.10.80.83".to_string(),
+            IdentityFile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
+            User: "pi".to_string(),
+            Password: None,
+            Port: 22,
+        });
+        result.insert("ubuntu".to_string(), Host{
+            HostName: "192.168.75.129".to_string(),
+            IdentityFile: None,
+            User: "ubuntu".to_string(),
+            Password: None,
+            Port: 22,
+        });
+        assert_eq!(result, v);
     }
 
     #[test]
-    #[ignore]
     fn test_get_ip() {
-        let ip = get_ip("jiandong");
-        println!("{:?}", ip);
+        let ip = get_ip("baidu").unwrap();
+        assert_eq!(ip, "baidu".to_string());
+        let ip = get_ip("q11").unwrap();
+        assert_eq!(ip, "192.168.1.11".to_string());
+        let ip = get_ip("11").unwrap();
+        assert_eq!(ip, "10.10.20.11".to_string());
+        let ip = get_ip("30.11").unwrap();
+        assert_eq!(ip, "10.10.30.11".to_string());
     }
 }
