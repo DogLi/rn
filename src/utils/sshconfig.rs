@@ -34,19 +34,13 @@ impl Host {
     }
 }
 
+/// 解析ssh config文件
+///
 pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
     where P: AsRef<Path> + Debug{
     let mut result = HashMap::new();
 
-    let f;
-    let read_result = File::open(path.as_ref());
-    match read_result {
-        Ok(something) => f = something,
-        Err(e) => {
-            println!("open file {:?} failed: {:?}", path, e.to_string());
-            return Ok(result);
-        },
-    }
+    let f = File::open(path.as_ref())?;
     let mut file = BufReader::new(&f);
 
     let mut sections = Vec::new();
@@ -54,7 +48,7 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
 
     for maybe_line in file.lines() {
         let line: String = try!(maybe_line);
-        if line.len() == 0 || line.starts_with('#') {
+        if line.trim().len() == 0 || line.starts_with('#') {
             continue;
         }
         if line.trim().starts_with("Host ") {
@@ -102,7 +96,7 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
                 host_obj.IdentityFile = Some(PathBuf::from(key_path));
             } else if line.to_lowercase().starts_with("Port") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
-                host_obj.Port = u16::from_str(line_list[1]).unwrap();
+                host_obj.Port = u16::from_str(line_list[1])?;
             }
 
         }
@@ -115,18 +109,18 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
 /// q123 -> 192.168.1.123
 /// 20 -> 10.10.20.20
 /// 30.20 -> 10.10.30.20
-pub fn get_ip<T: AsRef<str>>(hostname: T) -> String{
+pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String>{
     let hostname = hostname.as_ref();
-    let ip = if  Regex::new(r"^\d+$").unwrap().is_match(hostname) {
+    let ip = if  Regex::new(r"^\d+$")?.is_match(hostname) {
                 format!("10.10.20.{}", hostname)
-            } else if Regex::new(r"^\d+\.\d+$").unwrap().is_match(hostname) {
+            } else if Regex::new(r"^\d+\.\d+$")?.is_match(hostname) {
                 format!("10.10.{}", hostname)
-            } else if Regex::new(r"^q\d+$").unwrap().is_match(hostname) {
+            } else if Regex::new(r"^q\d+$")?.is_match(hostname) {
                 format!("192.168.1.{}", hostname.split_at(1).1)
             } else {
                 format!("{}", hostname)
             };
-    ip
+    Ok(ip)
 }
 
 
@@ -137,7 +131,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_host() {
-        let h = Host::new("10.10.90.11", "root", "~/.ssh/config");
+        let h = Host::new("10.10.90.11", "root", Some("~/.ssh/config"), None, None);
         println!("{:?}", h);
     }
 
@@ -150,20 +144,8 @@ mod tests {
 
     #[test]
     #[ignore]
-    fn test_host_rule() {
-        let host = get_host_by_rule("jiandong");
-        println!("{:?}", host);
-    }
-
-    #[test]
-    fn test_get_host_from_rule() {
-        let host = get_host("jiandong2", "/Users/yuanlinfeng/.ssh/config");
-        println!("test host: {:?}", host);
-    }
-
-    #[test]
-    fn test_get_host_from_config() {
-        let host = get_host("jiandong", "/Users/yuanlinfeng/.ssh/config");
-        println!("test host: {:?}", host);
+    fn test_get_ip() {
+        let ip = get_ip("jiandong");
+        println!("{:?}", ip);
     }
 }

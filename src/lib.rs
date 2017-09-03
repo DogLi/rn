@@ -11,6 +11,7 @@ extern crate shellexpand;
 #[macro_use]extern crate error_chain;
 #[macro_use] extern crate serde_derive;
 
+use errors::*;
 use utils::*;
 use std::path::{Path, PathBuf};
 use std::fmt::Debug;
@@ -117,26 +118,28 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
 }
 
 
-pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
+pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Result<()>
     where S: AsRef<str> + Debug + PartialEq,
           P: AsRef<Path> + Debug
 {
     // get the global config
-    let global_config = toml_parser::get_config(config_path).unwrap();
+    let global_config = toml_parser::get_config(config_path)?;
     println!("1. =================================\n\n");
     println!("{:?}", global_config);
-    let project = toml_parser::get_project_info(project_name, &global_config).unwrap();
+    let project = toml_parser::get_project_info(&project_name, &global_config)?;
     println!("2. =================================\n\n");
     println!("{:?}", project);
 
     // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
 
-    let server_host = sshconfig::parse_ssh_config(ssh_conf_path).unwrap();
-    let host:sshconfig::Host = match server_host.get(server.as_ref()) {
+    let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
+    // TODO: 将实现放在sshconfig.rs文件里
+    let host: sshconfig::Host = match server_host.get(server.as_ref()) {
         Some(host) => {
             let mut host = host.clone();
             if host.IdentityFile.is_none() {
+                // TODO: get password from input or get key file from input
                 host.Password = global_config.global_password;
                 if global_config.global_key.is_some() {
                     host.IdentityFile = Some(Path::new(global_config.global_key.unwrap().as_str()).into());
@@ -146,8 +149,9 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
         },
         None => {
             //let HostName = sshconfig::get_ip();
-            let HostName = sshconfig::get_ip(server.as_ref());
+            let HostName = sshconfig::get_ip(server.as_ref())?;
             let User = global_config.global_user;
+            // TODO: get password or key file from input
             let IdentityFile = match global_config.global_key{
                 None => None,
                 Some(ref file) => Some(tilde(file).into_owned())
@@ -167,8 +171,8 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
-    let common_home = match user {
-        "root".to_string() => "/root",
+    let common_home = match user.as_ref() {
+        "root" => "/root".to_string(),
         _ => format!("/home/{}", user),
     };
     let dest_root = tilde_with_context(project.dest.as_str(), ||{
@@ -187,4 +191,6 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool)
     //start watch
     let ignore_paths = if V.len() > 0 {Some(V)} else {None};
     start_watch(project.src, dest_root, &sftpclient, ignore_paths);
+
+    Ok(())
 }
