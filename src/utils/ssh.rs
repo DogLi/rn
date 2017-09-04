@@ -99,7 +99,7 @@ impl <'a> SftpClient<'a> {
 }
 
 pub fn test() {
-    let ssh_client = SSHClient::new("192.168.75.129", 22, "ubuntu", Some("nogame"), None::<&Path>);
+    let ssh_client = SSHClient::new("ubuntu", 22, "ubuntu", Some("nogame"), None::<&Path>);
     ssh_client.run_cmd("ls /tmp");
     let client = SftpClient::new(&ssh_client);
     client.mkdir("/tmp/abc", 0755);

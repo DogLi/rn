@@ -1,11 +1,11 @@
 #[macro_use]
 extern crate clap;
-extern crate mod_example;
+extern crate rn;
 
 mod args;
 #[macro_use] mod macros;
 
-use mod_example::run;
+use rn::run;
 
 fn main() {
     let matches = args::get_args();
@@ -15,8 +15,13 @@ fn main() {
     let server = matches.value_of("server").unwrap();
     let project_name = matches.value_of("project").unwrap_or("default");
     let watch = matches.occurrences_of("watch") == 1;
-    let verbose = matches.occurrences_of("verbose");
+    let user = matches.value_of("user");
+    let password = matches.value_of("password");
+    let identity = matches.value_of("identity");
+
+    println!("user: {:?}, passowrd: {:?}, identity: {:?}", user, password, identity);
+
 
     // more program logic goes here...
-    run(config_path, project_name, server, watch);
+    //run(config_path, project_name, server, watch);
 }
