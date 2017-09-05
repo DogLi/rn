@@ -1,8 +1,7 @@
-#[macro_use]
-use std::thread;
+use errors::*;
 use std::path::{PathBuf, Path};
-use std::time::{Duration, Instant};
-use std::sync::mpsc::{Sender, Receiver, TryRecvError};
+use std::time::{Duration};
+use std::sync::mpsc::{Sender, Receiver};
 use notify;
 use notify::{Watcher, RecursiveMode, DebouncedEvent, RecommendedWatcher};
 use super::ssh;
@@ -19,7 +18,7 @@ where P: AsRef<Path>{
 }
 
 pub trait watch{
-    fn handle_events(&mut self, event: &DebouncedEvent);
+    fn handle_events(&mut self, event: &DebouncedEvent) -> Result<()>;
 }
 
 
@@ -27,23 +26,16 @@ impl <'a, T> WatchDog<'a, T>
 where T: AsRef<Path>{
 
     // 得到目标文件
-    pub fn get_dest_path<Q: AsRef<Path>>(&self, path: &Q) ->  Option<String>{
-        match path.as_ref().strip_prefix(self.src_path.as_ref()) {
-            Ok(ref p) => {
-                let dest_path = self.dest_root.as_ref().join(p);
-                Some(dest_path.to_str().unwrap().to_string())
-            },
-            Err(e) => {
-                println!("can not get post_fix for {:?}", self.src_path.as_ref());
-                None
-            },
-        }
+    pub fn get_dest_path_buf<P: AsRef<Path>>(&self, path: &P) ->  Result<PathBuf>{
+        let p = path.as_ref().strip_prefix(self.src_path.as_ref())?;
+        let dest_path = self.dest_root.as_ref().join(p);
+        Ok(dest_path.to_path_buf())
     }
 
     fn watch(& mut self) {
         // block to wait file change
         match self.rx.recv() {
-            Ok(event) => { self.handle_events(&event);},
+            Ok(event) => { self.handle_events(&event).unwrap();},
             Err(e) => println!("watch error: {:?}", e),
         }
     }

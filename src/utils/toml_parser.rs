@@ -1,9 +1,7 @@
 use toml;
-use std::process;
 use errors::*;
 use std::fmt::Debug;
 use std::path::Path;
-use serde::de::DeserializeOwned;
 use utils::util::load_file;
 use std::cmp::PartialEq;
 use shellexpand::tilde;

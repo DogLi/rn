@@ -13,7 +13,7 @@ extern crate shellexpand;
 
 use errors::*;
 use utils::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fmt::Debug;
 use std::cmp::PartialEq;
 use std::sync::mpsc:: channel;
@@ -33,18 +33,17 @@ where P: AsRef<Path>{
             &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
             &DebouncedEvent::Create(ref path) => {
-                println!("notice create: {:?}, get dest path:{:}", path, self.get_dest_path(path)?);
-                let dest_path = self.get_dest_path(path)?;
-                let file_type = fs::metadata(path).unwrap().file_type();
+                let dest_path_buf = self.get_dest_path_buf(path)?;
+                let dest_path = &dest_path_buf.as_path();
+                println!("notice create: {:?}, get dest path:{:?}", path, dest_path);
+                let file_type = fs::metadata(path)?.file_type();
                 if file_type.is_dir() {
                     // get mode from src path
                     let permissions = fs::metadata(path)?.permissions();
                     let mode = permissions.mode() as i32; // return u32
-                    self.sftp.mkdir(&dest_path, mode);
+                    self.sftp.mkdir(dest_path, mode)?;
                 } else if file_type.is_file() {
-                    // TODO: transfer to remote
-                    self.ssh.upload_file(dest_path, path)?;
-
+                    self.sftp.upload_file(path, &dest_path)?;
                 } else if file_type.is_symlink() {
                     //TODO: get the realpath of the link
                     // get the remote realpath
@@ -89,7 +88,7 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
             }
             if entry.file_type()?.is_dir() {
                 println!("{} is directory", path.display());
-                get_dir_ignored(&path, exclude, ignore_path);
+                get_dir_ignored(&path, exclude, ignore_path)?;
             } else if entry.file_type()?.is_file(){
                 println!("{} is file", path.display());
             } else if entry.file_type()?.is_symlink(){
@@ -114,7 +113,7 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
         sftp: sftp,
         ignore_paths: ignore_paths,
     };
-    watchdog.start();
+    watchdog.start().unwrap();
 }
 
 
@@ -137,35 +136,35 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Res
     let host: sshconfig::Host = match server_host.get(server.as_ref()) {
         Some(host) => {
             let mut host = host.clone();
-            if host.IdentityFile.is_none() {
+            if host.identityfile.is_none() {
                 // TODO: get password from input or get key file from input
-                host.Password = global_config.global_password;
+                host.password = global_config.global_password;
                 if global_config.global_key.is_some() {
-                    host.IdentityFile = Some(Path::new(global_config.global_key.unwrap().as_str()).into());
+                    host.identityfile = Some(Path::new(global_config.global_key.unwrap().as_str()).into());
                 }
             }
             host
         },
         None => {
-            //let HostName = sshconfig::get_ip();
-            let HostName = sshconfig::get_ip(server.as_ref())?;
-            let User = global_config.global_user;
+            //let hostname = sshconfig::get_ip();
+            let hostname = sshconfig::get_ip(server.as_ref())?;
+            let user = global_config.global_user;
             // TODO: get password or key file from input
-            let IdentityFile = match global_config.global_key{
+            let identityfile = match global_config.global_key{
                 None => None,
                 Some(ref file) => Some(tilde(file).into_owned())
             };
-            let Password = global_config.global_password;
-            let Port = global_config.global_port;
-            sshconfig::Host::new(HostName, User, IdentityFile, Password, Port)
+            let password = global_config.global_password;
+            let port = global_config.global_port;
+            sshconfig::Host::new(hostname, user, identityfile, password, port)
         }
     };
     println!("3. =================================\n\n");
     println!("{:?}", host);
 
     // connect
-    let user = host.User.clone();
-    let sshclient = ssh::SSHClient::new(host.HostName, host.Port, host.User, host.Password, host.IdentityFile);
+    let user = host.user.clone();
+    let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile);
     println!("{:?}",sshclient.run_cmd("ls /tmp"));
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
@@ -184,11 +183,11 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Res
     println!("dest path: {}", dest_root);
 
     // get ignore dir
-    let mut V = Vec::new();
-    get_dir_ignored(&project.src, project.exclude.as_ref(), &mut V);
+    let mut v = Vec::new();
+    get_dir_ignored(&project.src, project.exclude.as_ref(), &mut v);
 
     //start watch
-    let ignore_paths = if V.len() > 0 {Some(V)} else {None};
+    let ignore_paths = if v.len() > 0 {Some(v)} else {None};
     start_watch(project.src, dest_root, &sftpclient, ignore_paths);
 
     Ok(())

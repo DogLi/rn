@@ -13,23 +13,23 @@ use shellexpand::tilde;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Host {
-    pub HostName: String,
-    pub IdentityFile: Option<PathBuf>,
-    pub User: String,
-    pub Password: Option<String>,
-    pub Port: u16,
+    pub hostname: String,
+    pub identityfile: Option<PathBuf>,
+    pub user: String,
+    pub password: Option<String>,
+    pub port: u16,
 }
 
 
 impl Host {
-    pub fn new<S, P>(HostName: S, User: S, IdentityFile: Option<P>, Password: Option<S>, Port: Option<u16>) -> Self
+    pub fn new<S, P>(hostname: S, user: S, identityfile: Option<P>, password: Option<S>, port: Option<u16>) -> Self
     where S: AsRef<str>, P: AsRef<Path> {
         Host{
-            HostName: HostName.as_ref().to_string(),
-            User: User.as_ref().to_string(),
-            IdentityFile: match IdentityFile {None => None, Some(ref file) => Some(file.as_ref().to_owned())},
-            Password: match Password {None => None, Some(ref pwd) => Some(pwd.as_ref().to_string())},
-            Port: Port.unwrap_or(22),
+            hostname: hostname.as_ref().to_string(),
+            user: user.as_ref().to_string(),
+            identityfile: match identityfile {None => None, Some(ref file) => Some(file.as_ref().to_owned())},
+            password: match password {None => None, Some(ref pwd) => Some(pwd.as_ref().to_string())},
+            port: port.unwrap_or(22),
         }
     }
 }
@@ -41,7 +41,7 @@ where P: AsRef<Path> + Debug{
     let mut result = HashMap::new();
 
     let f = File::open(path.as_ref())?;
-    let mut file = BufReader::new(&f);
+    let file = BufReader::new(&f);
 
     let mut sections = Vec::new();
     let mut sub_section = Vec::new();
@@ -86,17 +86,17 @@ where P: AsRef<Path> + Debug{
                 hostname = line_list[1].to_string();
             } else if line.to_lowercase().starts_with("hostname") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
-                host_obj.HostName = line_list[1].to_string();
+                host_obj.hostname = line_list[1].to_string();
             } else if line.to_lowercase().starts_with("user") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
-                host_obj.User = line_list[1].to_string();
+                host_obj.user = line_list[1].to_string();
             } else if line.to_lowercase().starts_with("identityfile") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
                 let key_path = tilde(line_list[1]).into_owned();
-                host_obj.IdentityFile = Some(PathBuf::from(key_path));
+                host_obj.identityfile = Some(PathBuf::from(key_path));
             } else if line.to_lowercase().starts_with("Port") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
-                host_obj.Port = u16::from_str(line_list[1])?;
+                host_obj.port = u16::from_str(line_list[1])?;
             }
 
         }
@@ -151,18 +151,18 @@ Host ubuntu
 
         let mut result = HashMap::new();
         result.insert("pi".to_string(), Host{
-            HostName: "10.10.80.83".to_string(),
-            IdentityFile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
-            User: "pi".to_string(),
-            Password: None,
-            Port: 22,
+            hostname: "10.10.80.83".to_string(),
+            identityfile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
+            user: "pi".to_string(),
+            password: None,
+            port: 22,
         });
         result.insert("ubuntu".to_string(), Host{
-            HostName: "192.168.75.129".to_string(),
-            IdentityFile: None,
-            User: "ubuntu".to_string(),
-            Password: None,
-            Port: 22,
+            hostname: "192.168.75.129".to_string(),
+            identityfile: None,
+            user: "ubuntu".to_string(),
+            password: None,
+            port: 22,
         });
         assert_eq!(result, v);
     }
