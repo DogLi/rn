@@ -3,6 +3,7 @@ use ssh2::{Sftp, Session, Error, RenameFlags};
 use std::io::prelude::*;
 use std::io;
 use std::net;
+use std::fs::{self, File};
 use std::path::Path;
 use std::net::TcpStream;
 use errors::*;
@@ -64,16 +65,6 @@ impl SSHClient {
         println!("{}", channel.exit_status().unwrap());
     }
 
-    // http://alexcrichton.com/ssh2-rs/ssh2/index.html
-    pub fn upload_file<P>(&self, remote_path: P, local_path:P) -> Result<()>
-    where P: AsRef<Path>{
-
-    }
-
-    pub fn download_file<P>(&self, remote_path: P, local_path:P) -> Result<()>
-    where P: AsRef<Path>{
-
-    }
 }
 
 impl <'a> SftpClient<'a> {
@@ -85,25 +76,48 @@ impl <'a> SftpClient<'a> {
         }
     }
 
-    pub fn mkdir<T: AsRef<Path>>(&self, path: T, mode: i32){
-        self.sftp.mkdir(path.as_ref(), mode).unwrap();
+    // http://alexcrichton.com/ssh2-rs/ssh2/index.html
+    pub fn upload_file<P>(&self, remote_path: &P, local_path: &P) -> Result<()>
+    where P: AsRef<Path>{
+        let metadata = fs::metadata(local_path)?;
+        let mode = metadata.permissions().mode() as i32;
+        let size =  metadata.len(); // u64
+
+        let mut contents = String::new();
+        File::open(local_path)?.read_to_string(&mut contents)?;
+        let mut remote_file = self.ssh_client.session.scp_send(remote_path, mode, size, None)?;
+        remote_file.write(contents.as_bytes())?;
+        Ok(())
     }
 
-    pub fn rmdir<T: AsRef<Path>>(&self, path: T){
-        self.sftp.rmdir(path.as_ref()).unwrap();
+    pub fn mkdir<P: AsRef<Path>>(&self, path: P, mode: i32)-> Result<()>{
+        self.sftp.mkdir(path.as_ref(), mode)?;
+        Ok(())
     }
 
-    pub fn create<T: AsRef<Path>>(&self, path: T, content: &String)-> Result<()> {
+    pub fn rmdir<P: AsRef<Path>>(&self, path: P) -> Result<()>{
+        self.sftp.rmdir(path.as_ref());
+        Ok(())
+    }
+
+    pub fn create<P: AsRef<Path>>(&self, path: P, content: &String) -> Result<()> {
         self.sftp.create(path.as_ref())?.write_all(content.as_bytes())?;
         Ok(())
     }
 
-    pub fn unlink<T: AsRef<Path>>(&self, path: T) {
+    pub fn unlink<P: AsRef<Path>>(&self, path: P) -> Result<()>{
         self.sftp.unlink(path.as_ref()).unwrap();
+        Ok(())
     }
 
-    pub fn rename<T: AsRef<Path>>(&self, src: T, dest: T) {
-        self.sftp.rename(src.as_ref(), dest.as_ref(), Some(ssh2::OVERWRITE)).unwrap();
+    pub fn rename<P: AsRef<Path>>(&self, src: P, dest: P) -> Result<()>{
+        self.sftp.rename(src.as_ref(), dest.as_ref(), Some(ssh2::OVERWRITE))?;
+        Ok(())
+    }
+
+    pub fn symlink<T: AsRef<Path>>(&self, src: P, dest: P) -> Result<()>{
+        self.sftp.symlink(src, dest)?;
+        Ok(())
     }
 
 }

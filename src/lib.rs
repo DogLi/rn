@@ -28,24 +28,23 @@ use std::os::unix::fs::PermissionsExt;
 impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
 where P: AsRef<Path>{
     // 处理文件更改事件
-    fn handle_events(&mut self, event: &DebouncedEvent){
+    fn handle_events(&mut self, event: &DebouncedEvent) -> Result<()>{
         match event {
             &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
             &DebouncedEvent::Create(ref path) => {
-                println!("notice create: {:?}, get dest path:{:}", path, self.get_dest_path(path).unwrap());
-                let dest_path = self.get_dest_path(path).unwrap();
+                println!("notice create: {:?}, get dest path:{:}", path, self.get_dest_path(path)?);
+                let dest_path = self.get_dest_path(path)?;
                 let file_type = fs::metadata(path).unwrap().file_type();
                 if file_type.is_dir() {
                     // get mode from src path
-                    let permissions = fs::metadata(path).unwrap().permissions();
+                    let permissions = fs::metadata(path)?.permissions();
                     let mode = permissions.mode() as i32; // return u32
                     self.sftp.mkdir(&dest_path, mode);
                 } else if file_type.is_file() {
-                    // ssh2::session::scp_send()
-                    // TODO: get the content of file
-                    let mut content = String::new();
-                    self.sftp.create(dest_path, &content);
+                    // TODO: transfer to remote
+                    self.ssh.upload_file(dest_path, path)?;
+
                 } else if file_type.is_symlink() {
                     //TODO: get the realpath of the link
                     // get the remote realpath
@@ -54,11 +53,12 @@ where P: AsRef<Path>{
             },
             &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::Chmod(ref path) => {println!("notice chmod: {:?}", path);},
-            &DebouncedEvent::Remove(ref path) => {println!("notice rename: {:?}", path);},
-            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {println!("notice : {:?} -> {:?}", path_src, path_dest);},
+            &DebouncedEvent::Remove(ref path) => {println!("notice remove: {:?}", path);},
+            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {println!("notice rename : {:?} -> {:?}", path_src, path_dest);},
             &DebouncedEvent::Rescan => {},
             &DebouncedEvent::Error(ref e, ref path) => {println!("error {:?}: {:?}", &path, e)},
         }
+        Ok(())
     }
 }
 
