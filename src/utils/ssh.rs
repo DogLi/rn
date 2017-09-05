@@ -64,6 +64,16 @@ impl SSHClient {
         println!("{}", channel.exit_status().unwrap());
     }
 
+    // http://alexcrichton.com/ssh2-rs/ssh2/index.html
+    pub fn upload_file<P>(&self, remote_path: P, local_path:P) -> Result<()>
+    where P: AsRef<Path>{
+
+    }
+
+    pub fn download_file<P>(&self, remote_path: P, local_path:P) -> Result<()>
+    where P: AsRef<Path>{
+
+    }
 }
 
 impl <'a> SftpClient<'a> {
