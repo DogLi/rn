@@ -17,13 +17,26 @@ where P: AsRef<Path>{
     pub sftp: &'a ssh::SftpClient<'a>,
 }
 
-pub trait watch{
-    fn handle_events(&mut self, event: &DebouncedEvent) -> Result<()>;
+pub trait Watch{
+    fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()>;
 }
 
 
 impl <'a, T> WatchDog<'a, T>
 where T: AsRef<Path>{
+    fn handle_events(&mut self, event: &DebouncedEvent) {
+        if let Err(ref e) = self.do_handle_events(event) {
+            println!("error: {}", e);
+
+            for e in e.iter().skip(1) {
+                println!("caused by: {}", e);
+            }
+
+            if let Some(backtrace) = e.backtrace() {
+                println!("backtrace: {:?}", backtrace);
+            }
+        }
+    }
 
     // 得到目标文件
     pub fn get_dest_path_buf<P: AsRef<Path>>(&self, path: &P) ->  Result<PathBuf>{
@@ -35,7 +48,7 @@ where T: AsRef<Path>{
     fn watch(& mut self) {
         // block to wait file change
         match self.rx.recv() {
-            Ok(event) => { self.handle_events(&event).unwrap();},
+            Ok(event) => { self.handle_events(&event); },
             Err(e) => println!("watch error: {:?}", e),
         }
     }

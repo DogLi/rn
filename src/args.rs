@@ -1,5 +1,4 @@
 use clap;
-use clap::{App, Arg};
 
 pub fn get_args() -> clap::ArgMatches<'static> {
     clap::App::new("rn")
@@ -21,11 +20,10 @@ pub fn get_args() -> clap::ArgMatches<'static> {
         .arg(clap::Arg::with_name("watch")
                  .short("w")
                  .long("watch")
-                 .help("watch for file change!"))
+                 .help("keep watching for file change!"))
         .arg(clap::Arg::with_name("config")
                  .short("c")
                  .long("config")
-                 .value_name("CONFIG")
                  .takes_value(true)
                  .default_value("settings.toml")
                  .help("Config for rn's variables."))
@@ -33,7 +31,6 @@ pub fn get_args() -> clap::ArgMatches<'static> {
                  .short("u")
                  .long("user")
                  .required(false)
-                 .value_name("USER")
                  .takes_value(true)
                  .help("set ssh username for remote host."))
         .arg(clap::Arg::with_name("password")
@@ -41,14 +38,12 @@ pub fn get_args() -> clap::ArgMatches<'static> {
                  .long("password")
                  .takes_value(true)
                  .required(false)
-                 .value_name("PASSWORD")
                  .help("set ssh password for remote host."))
         .arg(clap::Arg::with_name("identity")
                  .short("i")
                  .long("indentity")
                  .takes_value(true)
                  .required(false)
-                 .value_name("IDENTITY")
                  .help("set ssh identity file path for remote host."))
         .get_matches()
 }

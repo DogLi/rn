@@ -30,7 +30,7 @@ pub fn get_config<P>(toml_path: P) -> Result<GlobalConfig>
 where P: AsRef<Path> + Debug
 {
     // get the project settings config from *.toml file
-    let toml_string = load_file(&toml_path).chain_err(|| format!("error to open file: {:?}", &toml_path))?;
+    let toml_string = load_file(&toml_path)?;
     let mut g_config: GlobalConfig = toml::from_str(toml_string.as_str())?;
     // change ~ into $HOME in the key
     g_config.global_key = match g_config.global_key{

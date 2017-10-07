@@ -1,5 +1,6 @@
 pub mod utils;
 pub mod errors;
+pub mod my_logger;
 
 extern crate glob;
 extern crate ssh2;
@@ -8,8 +9,20 @@ extern crate notify;
 extern crate regex;
 extern crate toml;
 extern crate shellexpand;
-#[macro_use]extern crate error_chain;
-#[macro_use] extern crate serde_derive;
+
+
+#[macro_use(slog_o, slog_debug, slog_info, slog_warn, slog_error, slog_crit, slog_log, slog_record, slog_record_static, slog_b, slog_kv)]
+extern crate slog;
+#[macro_use]
+extern crate slog_scope;
+extern crate slog_term;
+extern crate slog_json;
+extern crate slog_async;
+
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate serde_derive;
 
 use errors::*;
 use utils::*;
@@ -18,23 +31,23 @@ use std::fmt::Debug;
 use std::cmp::PartialEq;
 use std::sync::mpsc:: channel;
 use std::fs;
-use std::io;
 use glob::glob;
 use shellexpand::{tilde, tilde_with_context};
 use notify::DebouncedEvent;
 use std::os::unix::fs::PermissionsExt;
 
 
-impl <'a, P> watchdog::watch for watchdog::WatchDog<'a, P>
+impl <'a, P> watchdog::Watch for watchdog::WatchDog<'a, P>
 where P: AsRef<Path>{
     // 处理文件更改事件
-    fn handle_events(&mut self, event: &DebouncedEvent) -> Result<()>{
+
+    fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()>{
         match event {
             &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
             &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
             &DebouncedEvent::Create(ref path) => {
                 let dest_path_buf = self.get_dest_path_buf(path)?;
-                let dest_path = &dest_path_buf.as_path();
+                let dest_path = dest_path_buf.as_path();
                 println!("notice create: {:?}, get dest path:{:?}", path, dest_path);
                 let file_type = fs::metadata(path)?.file_type();
                 if file_type.is_dir() {
@@ -43,11 +56,11 @@ where P: AsRef<Path>{
                     let mode = permissions.mode() as i32; // return u32
                     self.sftp.mkdir(dest_path, mode)?;
                 } else if file_type.is_file() {
-                    self.sftp.upload_file(path, &dest_path)?;
+                    self.sftp.upload_file(path, dest_path)?;
                 } else if file_type.is_symlink() {
-                    //TODO: get the realpath of the link
-                    // get the remote realpath
-                    // creak the link
+                    // TODO: get the real path of the link
+                    //let dest_src = "";
+                    //self.sftp.symlink(dest_src, dest_path)?;
                 }
             },
             &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
@@ -62,7 +75,7 @@ where P: AsRef<Path>{
 }
 
 // 获取忽略文件
-fn get_dir_ignored<P, S>(root: P, exclude: Option<&Vec<S>>, ignore_path: &mut Vec<String>) -> io::Result<()>
+fn get_dir_ignored<P, S>(root: P, exclude: Option<&Vec<S>>, ignore_path: &mut Vec<String>) -> Result<()>
 where P: AsRef<Path> + PartialEq, S: AsRef<str>{
     if !root.as_ref().metadata()?.file_type().is_dir() {
         println!("the root path is not directory!");
@@ -78,7 +91,7 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
             }
 
         }
-        for entry in fs::read_dir(root.as_ref()).unwrap() {
+        for entry in fs::read_dir(root.as_ref())? {
             let entry = entry?;
             let path = entry.path();
             if ignore_path.iter().any(|r| r.as_str()==path.to_str().unwrap_or("")){
@@ -102,7 +115,7 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
 }
 
 
-fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient, ignore_paths: Option<Vec<P>>) {
+fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient, ignore_paths: Option<Vec<P>>) -> Result<()>{
     println!("watching path: {:?}", src_path.as_ref());
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
@@ -113,27 +126,28 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
         sftp: sftp,
         ignore_paths: ignore_paths,
     };
-    watchdog.start().unwrap();
+    watchdog.start()?;
+    Ok(())
 }
 
 
-pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Result<()>
+pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: Option<S>, password: Option<S>, identity: Option<S>) -> Result<()>
     where S: AsRef<str> + Debug + PartialEq,
           P: AsRef<Path> + Debug
 {
+    let log = slog_scope::logger();
     // get the global config
     let global_config = toml_parser::get_config(config_path)?;
-    println!("1. =================================\n\n");
-    println!("{:?}", global_config);
+    info!("{:?}", global_config);
     let project = toml_parser::get_project_info(&project_name, &global_config)?;
-    println!("2. =================================\n\n");
     println!("{:?}", project);
 
     // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
+    println!("2. =================================\n\n");
 
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
-    let host: sshconfig::Host = match server_host.get(server.as_ref()) {
+    let mut host: sshconfig::Host = match server_host.get(server.as_ref()) {
         Some(host) => {
             let mut host = host.clone();
             if host.identityfile.is_none() {
@@ -148,24 +162,37 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Res
         None => {
             //let hostname = sshconfig::get_ip();
             let hostname = sshconfig::get_ip(server.as_ref())?;
-            let user = global_config.global_user;
+            let g_user = global_config.global_user;
             // TODO: get password or key file from input
             let identityfile = match global_config.global_key{
                 None => None,
                 Some(ref file) => Some(tilde(file).into_owned())
             };
-            let password = global_config.global_password;
+            let g_password = global_config.global_password;
             let port = global_config.global_port;
-            sshconfig::Host::new(hostname, user, identityfile, password, port)
+            sshconfig::Host::new(hostname, g_user, identityfile, g_password, port)
         }
     };
-    println!("3. =================================\n\n");
+
+    // update user, password, identity file
+    if user.is_some() {
+        host.user = user.unwrap().as_ref().to_string();
+    }
+    if password.is_some() {
+        host.password = Some(password.unwrap().as_ref().to_string());
+        host.identityfile = None;
+    }
+    if identity.is_some() {
+        host.identityfile = Some(Path::new(identity.unwrap().as_ref()).to_path_buf());
+        host.password = None;
+    }
+
     println!("{:?}", host);
 
     // connect
     let user = host.user.clone();
-    let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile);
-    println!("{:?}",sshclient.run_cmd("ls /tmp"));
+    let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile)?;
+    println!("{:?}",sshclient.run_cmd("ls /tmp")?);
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
@@ -184,11 +211,11 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool) -> Res
 
     // get ignore dir
     let mut v = Vec::new();
-    get_dir_ignored(&project.src, project.exclude.as_ref(), &mut v);
+    get_dir_ignored(&project.src, project.exclude.as_ref(), &mut v)?;
 
     //start watch
     let ignore_paths = if v.len() > 0 {Some(v)} else {None};
-    start_watch(project.src, dest_root, &sftpclient, ignore_paths);
+    start_watch(project.src, dest_root, &sftpclient, ignore_paths)?;
 
     Ok(())
 }

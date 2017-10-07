@@ -14,3 +14,8 @@ notify= { git = "https://github.com/passcod/notify.git" }
 ssh2 = "*"
 clap = "*"
 glob = "*"
+slog = { version = "*", features = ["max_level_trace", "release_max_level_trace"] }
+slog-term = "*"
+slog-json = "*"
+slog-async = "*"
+slog-scope = "*"

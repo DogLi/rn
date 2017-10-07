@@ -40,7 +40,8 @@ pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
 where P: AsRef<Path> + Debug{
     let mut result = HashMap::new();
 
-    let f = File::open(path.as_ref())?;
+    let f = File::open(path.as_ref())
+        .map_err(|err| format!("open {:?} failed: {}", path, err.to_string()))?;
     let file = BufReader::new(&f);
 
     let mut sections = Vec::new();

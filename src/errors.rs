@@ -1,6 +1,8 @@
 extern crate regex;
 extern crate toml;
 extern crate ssh2;
+extern crate notify;
+
 use std::{io, num};
 use std::convert::From;
 use std::path::StripPrefixError;
@@ -13,5 +15,6 @@ error_chain! {
         SSHError(ssh2::Error);
         PathError(StripPrefixError);
         NumParseError(num::ParseIntError);
+        NotifyError(notify::Error);
     }
 }

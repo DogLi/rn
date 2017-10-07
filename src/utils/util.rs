@@ -1,13 +1,16 @@
+use errors::*;
 use std::fs::File;
-use std::io;
 use std::io::Read;
 use std::path::Path;
 
 
-pub fn load_file<T: AsRef<Path>>(file_path: T) -> io::Result<String> {
+pub fn load_file<T: AsRef<Path>>(file_path: T) -> Result<String> {
+    println!("load file {:?}", file_path.as_ref());
 
     let mut contents = String::new();
-    File::open(file_path)?.read_to_string(&mut contents)?;
+    File::open(file_path.as_ref())
+        .map_err(|err| format!("open {:?} failed: {}", file_path.as_ref(), err.to_string()))?
+        .read_to_string(&mut contents)?;
     Ok(contents)
 }
 
