@@ -48,7 +48,7 @@ where P: AsRef<Path>{
             &DebouncedEvent::Create(ref path) => {
                 let dest_path_buf = self.get_dest_path_buf(path)?;
                 let dest_path = dest_path_buf.as_path();
-                println!("notice create: {:?}, get dest path:{:?}", path, dest_path);
+                info!("notice create: {:?}, get dest path:{:?}", path, dest_path);
                 let file_type = fs::metadata(path)?.file_type();
                 if file_type.is_dir() {
                     // get mode from src path
@@ -78,7 +78,7 @@ where P: AsRef<Path>{
 fn get_dir_ignored<P, S>(root: P, exclude: Option<&Vec<S>>, ignore_path: &mut Vec<String>) -> Result<()>
 where P: AsRef<Path> + PartialEq, S: AsRef<str>{
     if !root.as_ref().metadata()?.file_type().is_dir() {
-        println!("the root path is not directory!");
+        info!("the root path is not directory!");
     } else {
         for ipath in exclude.unwrap() {
             let temp_path = root.as_ref().join(Path::new(ipath.as_ref()));
@@ -86,7 +86,7 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
             for entry in glob(temp_path_str).unwrap() {
                 match entry {
                     Ok(path) => ignore_path.push(path.to_str().unwrap().into()),
-                    Err(e) => println!("error when get glob path: {:?}", e),
+                    Err(e) => error!("error when get glob path: {:?}", e),
                 }
             }
 
@@ -97,17 +97,17 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
             if ignore_path.iter().any(|r| r.as_str()==path.to_str().unwrap_or("")){
                 continue;
             } else {
-                println!("find unignored path: {:?}", path);
+                info!("find unignored path: {:?}", path);
             }
             if entry.file_type()?.is_dir() {
-                println!("{} is directory", path.display());
+                info!("{} is directory", path.display());
                 get_dir_ignored(&path, exclude, ignore_path)?;
             } else if entry.file_type()?.is_file(){
-                println!("{} is file", path.display());
+                info!("{} is file", path.display());
             } else if entry.file_type()?.is_symlink(){
-                println!("{} is symlink", path.display());
+                info!("{} is symlink", path.display());
             } else {
-                println!("{} is unknown type", path.display())
+                warn!("{} is unknown type", path.display())
             }
         }
     }
@@ -116,7 +116,7 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
 
 
 fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient, ignore_paths: Option<Vec<P>>) -> Result<()>{
-    println!("watching path: {:?}", src_path.as_ref());
+    info!("watching path: {:?}", src_path.as_ref());
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
         src_path: src_path,
@@ -140,11 +140,11 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
     let global_config = toml_parser::get_config(config_path)?;
     info!("{:?}", global_config);
     let project = toml_parser::get_project_info(&project_name, &global_config)?;
-    println!("{:?}", project);
+    info!("{:?}", project);
 
     // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
-    println!("2. =================================\n\n");
+    info!("2. =================================\n\n");
 
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
     let mut host: sshconfig::Host = match server_host.get(server.as_ref()) {
@@ -187,12 +187,13 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
         host.password = None;
     }
 
-    println!("{:?}", host);
+    info!("{:?}", host);
 
     // connect
     let user = host.user.clone();
     let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile)?;
-    println!("{:?}",sshclient.run_cmd("ls /tmp")?);
+    let cmd_output = sshclient.run_cmd("ls /tmp")?;
+    info!("{:?}", cmd_output);
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
@@ -207,7 +208,7 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
             Some(Path::new(&common_home))
         }
     }).into_owned();
-    println!("dest path: {}", dest_root);
+    info!("dest path: {}", dest_root);
 
     // get ignore dir
     let mut v = Vec::new();

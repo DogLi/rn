@@ -25,6 +25,14 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let console_drain = slog_async::Async::new(drain).build().fuse();
+    let global_info = slog_o!("version" => "0.5",
+                        "place" => slog::FnValue(move |info| {
+                            format!("{}:{} {}",
+                                    info.file(),
+                                    info.line(),
+                                    info.module(),
+                                    )
+                        }));
 
     if log_path.is_some() {
         let file = OpenOptions::new()
@@ -39,10 +47,10 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
         // join together all drains
         let drains = slog::Duplicate::new(console_drain, file_drain).fuse();
         let drains = slog::LevelFilter::new(drains, log_level).map(slog::Fuse);
-        let log = slog::Logger::root(drains, slog_o!("version" => "0.5"));
-        Ok(log)
+        let log = slog::Logger::root(drains, global_info);
+        return Ok(log);
     } else {
-        let log = slog::Logger::root(console_drain, slog_o!("version" => "0.5"));
-        Ok(log)
+        let log = slog::Logger::root(console_drain, global_info);
+        return Ok(log);
     }
 }
