@@ -26,11 +26,10 @@ pub struct Project{
     pub exclude: Option<Vec<String>>,
 }
 
-pub fn get_config<P>(toml_path: P) -> Result<GlobalConfig>
-where P: AsRef<Path> + Debug
+pub fn get_config(toml_path: &Path) -> Result<GlobalConfig>
 {
     // get the project settings config from *.toml file
-    let toml_string = load_file(&toml_path)?;
+    let toml_string = load_file(toml_path)?;
     let mut g_config: GlobalConfig = toml::from_str(toml_string.as_str())?;
     // change ~ into $HOME in the key
     g_config.global_key = match g_config.global_key{
@@ -46,7 +45,6 @@ pub fn get_project_info<S>(project_name: S, config: &GlobalConfig) -> Result<Pro
     where S: AsRef<str> + Debug + PartialEq{
     if config.projects.is_some() {
         for project in config.projects.as_ref().unwrap() {
-            println!("project: {:?}", project);
             if project.name == project_name.as_ref(){
                 let mut info = project.clone();
                 info.src = tilde(&info.src).into_owned();
@@ -81,13 +79,10 @@ dest = "~/qdata-cloud/"
 exclude = [".git", "prometheus.yaml"]
 "##;
         tmp_file.write_all(content.as_bytes()).unwrap();
-
         let global_config = get_config(tmp_path).unwrap();
-        println!("global config:\n{:?}", global_config);
 
         let project_name = "default";
         let project = get_project_info(project_name, &global_config).unwrap();
-        println!("{:?}", project);
         assert_eq!(project,
                   Project{
                       name: "default".to_string(),

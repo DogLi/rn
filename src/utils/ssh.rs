@@ -68,9 +68,7 @@ impl SSHClient {
         channel.exec(cmd)?;
         let mut s = String::new();
         channel.read_to_string(&mut s)?;
-        println!("{}", s);
         channel.wait_close()?;
-        println!("{}", channel.exit_status()?);
         Ok(())
     }
 

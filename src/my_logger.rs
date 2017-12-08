@@ -1,32 +1,33 @@
 use errors::*;
 use slog;
-use slog_scope;
 use slog_async;
 use slog_term;
 use slog_json;
 
 use std::path::PathBuf;
 use std::fs::OpenOptions;
-use slog::{Level, Drain, Fuse, SendSyncRefUnwindSafeDrain};
+use slog::{Level, Drain};
 
 
 
 pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::Logger>
 {
     let log_level = match log_level {
-        n if n > 1 => Level::Trace,
-        1 => Level::Debug,
-        0 => Level::Info,
-        -1 => Level::Warning,
-        -2 => Level::Error,
-        _ => Level::Critical,
+        0 => Level::Critical,
+        1 => Level::Error,
+        2 => Level::Warning,
+        3 => Level::Info,
+        4 => Level::Debug,
+        n if n > 5 => Level::Trace,
+        n if n < 0 => Level::Critical,
+        _ => Level::Debug,
     };
 
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let console_drain = slog_async::Async::new(drain).build().fuse();
     let global_info = slog_o!("version" => "0.5",
-                        "place" => slog::FnValue(move |info| {
+                        "location" => slog::FnValue(move |info| {
                             format!("{}:{} {}",
                                     info.file(),
                                     info.line(),
@@ -50,7 +51,8 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
         let log = slog::Logger::root(drains, global_info);
         return Ok(log);
     } else {
-        let log = slog::Logger::root(console_drain, global_info);
+        let drains = slog::LevelFilter::new(console_drain, log_level).map(slog::Fuse);
+        let log = slog::Logger::root(drains, global_info);
         return Ok(log);
     }
 }

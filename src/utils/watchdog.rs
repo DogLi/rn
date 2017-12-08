@@ -5,8 +5,7 @@ use std::sync::mpsc::{Sender, Receiver};
 use notify::{self, Watcher, RecursiveMode, DebouncedEvent, RecommendedWatcher};
 use super::ssh;
 use regex::Regex;
-use serde;
-use std::{self, fs};
+use std::fs;
 use utils::util::is_exclude;
 use std::os::unix::fs::PermissionsExt;
 
@@ -25,14 +24,12 @@ pub struct WatchDog <'a,'b> {
 impl <'a, 'b> WatchDog<'a, 'b> {
     fn handle_events(&mut self, event: &DebouncedEvent) {
         if let Err(ref e) = self.do_handle_events(event) {
-            println!("error: {}", e);
-
+            error!("error: {}", e);
             for e in e.iter().skip(1) {
-                println!("caused by: {}", e);
+                error!("caused by: {}", e);
             }
-
             if let Some(backtrace) = e.backtrace() {
-                println!("backtrace: {:?}", backtrace);
+                error!("backtrace: {:?}", backtrace);
             }
         }
     }
@@ -48,7 +45,7 @@ impl <'a, 'b> WatchDog<'a, 'b> {
         // block to wait file change
         match self.rx.recv() {
             Ok(event) => { self.handle_events(&event); },
-            Err(e) => println!("watch error: {:?}", e),
+            Err(e) => error!("watch error: {:?}", e),
         }
     }
 
@@ -66,8 +63,8 @@ impl <'a, 'b> WatchDog<'a, 'b> {
 
     fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()>{
         match event {
-            &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
-            &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
+            &DebouncedEvent::NoticeWrite(ref path) => {info!("notice write: {:?}", path);},
+            &DebouncedEvent::NoticeRemove(ref path) => {info!("notice remove: {:?}", path);},
             &DebouncedEvent::Create(ref path) => {
                 if self.exclude_files.iter().any(|r| *r == path.to_path_buf()) {
                     info!(" ' {:?} ' created, but ignored!", path);

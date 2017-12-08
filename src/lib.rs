@@ -27,17 +27,13 @@ extern crate serde_derive;
 use errors::*;
 use utils::*;
 use std::path::{Path, PathBuf};
-use std::fmt::Debug;
-use std::cmp::PartialEq;
 use std::sync::mpsc:: channel;
 use std::fs;
 use regex::Regex;
 use shellexpand::{tilde, tilde_with_context};
-use notify::DebouncedEvent;
-use std::os::unix::fs::PermissionsExt;
 
 
-fn start_watch(src_path: &Path, dest_root: &Path, sftp: &ssh::SftpClient, exclude_files: &mut Vec<PathBuf>, mut include_files: &mut Vec<PathBuf>, re_vec: &Vec<Regex>) -> Result<()>{
+fn start_watch(src_path: &Path, dest_root: &Path, sftp: &ssh::SftpClient, exclude_files: &mut Vec<PathBuf>, include_files: &mut Vec<PathBuf>, re_vec: &Vec<Regex>) -> Result<()>{
     info!("watching path: {:?}", src_path);
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
@@ -72,7 +68,7 @@ fn get_file_ignored(root: &Path, re_vec: &Vec<Regex>, exclude_files: &mut Vec<Pa
                 include_files.push(path_buf.clone());
             }
             if path_buf.is_dir() {
-                get_file_ignored(path_buf.as_path(), re_vec, exclude_files, include_files);
+                get_file_ignored(path_buf.as_path(), re_vec, exclude_files, include_files)?;
             }
         }
     }
@@ -80,16 +76,12 @@ fn get_file_ignored(root: &Path, re_vec: &Vec<Regex>, exclude_files: &mut Vec<Pa
 }
 
 pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, user: Option<&str>, password: Option<&str>, identity: Option<&str>) -> Result<()> {
-    let log = slog_scope::logger();
-    // get the global config
     let global_config = toml_parser::get_config(config_path)?;
     info!("global config: {:?}", global_config);
     let project = toml_parser::get_project_info(project_name, &global_config)?;
     info!("get project: {:?}", project);
 
-    // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
-
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
     let mut host: sshconfig::Host = match server_host.get(server) {
         Some(host) => {
@@ -116,7 +108,6 @@ pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, us
             sshconfig::Host::new(hostname, g_user, identityfile, g_password, port)
         }
     };
-
     // update user, password, identity file
     match user {
         Some(u) => {
@@ -141,13 +132,12 @@ pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, us
         None => {}
     }
 
-    info!("get host: {:?}", host);
-
+    debug!("get host: {:?}", host);
     // connect
     let user = host.user.clone();
     let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile)?;
     let cmd_output = sshclient.run_cmd("whoami")?;
-    info!("get cmd 'whoami' result: {:?}", cmd_output);
+    debug!("get cmd 'whoami' result: {:?}", cmd_output);
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
@@ -184,7 +174,7 @@ pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, us
     get_file_ignored(src_path, &re_vec, &mut exclude_files, &mut include_files)?;
 
     //start watch
-    start_watch(src_path, dest_path, &sftpclient, &mut exclude_files, &mut include_files, &re_vec)?;
+    start_watch(src_path, dest_path, &sftpclient, &mut exclude_files, &mut include_files, &re_vec);
 
     Ok(())
 }

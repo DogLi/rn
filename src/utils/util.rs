@@ -6,13 +6,17 @@ use regex::Regex;
 
 
 /// get the content of a file
-pub fn load_file<T: AsRef<Path>>(file_path: T) -> Result<String> {
-    println!("load file {:?}", file_path.as_ref());
-
+pub fn load_file(file_path: &Path) -> Result<String> {
     let mut contents = String::new();
-    File::open(file_path.as_ref())
-        .map_err(|err| format!("open {:?} failed: {}", file_path.as_ref(), err.to_string()))?
-        .read_to_string(&mut contents)?;
+    match File::open(file_path) {
+        Ok(mut f) => {
+            f.read_to_string(&mut contents).unwrap();
+        },
+        Err(e) => {
+            let err_msg = format!("error when open file: {:?}, {:?}", file_path, e.to_string());
+            bail!(err_msg.as_str());
+        },
+    }
     Ok(contents)
 }
 
@@ -46,6 +50,13 @@ mod tests {
         tmp_file.write_all(content.as_bytes()).unwrap();
         let result = load_file(tmp_path).unwrap();
         assert_eq!(result, "hello world".to_string());
+    }
+
+    #[test]
+    fn test_load_file2() {
+        let path = Path::new("~/bin/setting.toml");
+        let result = load_file(path);
+        assert!(result.is_err());
     }
 
     #[test]

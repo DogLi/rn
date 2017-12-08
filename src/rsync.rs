@@ -65,7 +65,7 @@ fn main() {
 
 
 fn rsync (source :&str, target :&str) {
-    println!(">> rsync {} {}", source, target);
+    info!(">> rsync {} {}", source, target);
     let options = vec![
         "-r",
         "-v",
