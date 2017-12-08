@@ -63,12 +63,12 @@ where P: AsRef<Path>{
                     //self.sftp.symlink(dest_src, dest_path)?;
                 }
             },
-            &DebouncedEvent::Write(ref path) => {println!("notice write: {:?}", path);},
-            &DebouncedEvent::Chmod(ref path) => {println!("notice chmod: {:?}", path);},
-            &DebouncedEvent::Remove(ref path) => {println!("notice remove: {:?}", path);},
-            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {println!("notice rename : {:?} -> {:?}", path_src, path_dest);},
+            &DebouncedEvent::Write(ref path) => {info!("notice write: {:?}", path);},
+            &DebouncedEvent::Chmod(ref path) => {info!("notice chmod: {:?}", path);},
+            &DebouncedEvent::Remove(ref path) => {info!("notice remove: {:?}", path);},
+            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {info!("notice rename : {:?} -> {:?}", path_src, path_dest);},
             &DebouncedEvent::Rescan => {},
-            &DebouncedEvent::Error(ref e, ref path) => {println!("error {:?}: {:?}", &path, e)},
+            &DebouncedEvent::Error(ref e, ref path) => {info!("error {:?}: {:?}", &path, e)},
         }
         Ok(())
     }
@@ -81,8 +81,8 @@ where P: AsRef<Path> + PartialEq, S: AsRef<str>{
         info!("the root path is not directory!");
     } else {
         for ipath in exclude.unwrap() {
-            let temp_path = root.as_ref().join(Path::new(ipath.as_ref()));
-            let temp_path_str = temp_path.to_str().unwrap();
+            let temp_path_str = root.as_ref().join(Path::new(ipath.as_ref())).to_str().unwrap();
+//          let temp_path_str = temp_path.to_str().unwrap();
             for entry in glob(temp_path_str).unwrap() {
                 match entry {
                     Ok(path) => ignore_path.push(path.to_str().unwrap().into()),
@@ -144,7 +144,6 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
 
     // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
-    info!("2. =================================\n\n");
 
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
     let mut host: sshconfig::Host = match server_host.get(server.as_ref()) {

@@ -28,8 +28,8 @@ fn main() {
     let password = matches.value_of("password");
     let identity = matches.value_of("identity");
     // TODO: set log path from args, and log_level
-    //let path_str = "/tmp/app.log";
-    let path_str = "";
+    let path_str = "/tmp/app.log";
+    //let path_str = "";
     let log_path = match path_str.len() {
         0 => None,
         _ => Some(PathBuf::from(path_str)),

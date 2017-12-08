@@ -38,7 +38,7 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
         let file = OpenOptions::new()
             .create(true)
             .write(true)
-            .truncate(true)
+            .truncate(false)
             .open(log_path.unwrap())?;
 
         let builder = slog_json::Json::new(file).add_key_value(slog_o!("type"=> "json")).add_default_keys();
