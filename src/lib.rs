@@ -26,97 +26,19 @@ extern crate serde_derive;
 
 use errors::*;
 use utils::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fmt::Debug;
 use std::cmp::PartialEq;
 use std::sync::mpsc:: channel;
 use std::fs;
-use glob::glob;
+use regex::Regex;
 use shellexpand::{tilde, tilde_with_context};
 use notify::DebouncedEvent;
 use std::os::unix::fs::PermissionsExt;
 
 
-impl <'a, P> watchdog::Watch for watchdog::WatchDog<'a, P>
-where P: AsRef<Path>{
-    // 处理文件更改事件
-
-    fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()>{
-        match event {
-            &DebouncedEvent::NoticeWrite(ref path) => {println!("notice write: {:?}", path);},
-            &DebouncedEvent::NoticeRemove(ref path) => {println!("notice remove: {:?}", path);},
-            &DebouncedEvent::Create(ref path) => {
-                let dest_path_buf = self.get_dest_path_buf(path)?;
-                let dest_path = dest_path_buf.as_path();
-                info!("notice create: {:?}, get dest path:{:?}", path, dest_path);
-                let file_type = fs::metadata(path)?.file_type();
-                if file_type.is_dir() {
-                    // get mode from src path
-                    let permissions = fs::metadata(path)?.permissions();
-                    let mode = permissions.mode() as i32; // return u32
-                    self.sftp.mkdir(dest_path, mode)?;
-                } else if file_type.is_file() {
-                    self.sftp.upload_file(path, dest_path)?;
-                } else if file_type.is_symlink() {
-                    // TODO: get the real path of the link
-                    //let dest_src = "";
-                    //self.sftp.symlink(dest_src, dest_path)?;
-                }
-            },
-            &DebouncedEvent::Write(ref path) => {info!("notice write: {:?}", path);},
-            &DebouncedEvent::Chmod(ref path) => {info!("notice chmod: {:?}", path);},
-            &DebouncedEvent::Remove(ref path) => {info!("notice remove: {:?}", path);},
-            &DebouncedEvent::Rename(ref path_src, ref path_dest) => {info!("notice rename : {:?} -> {:?}", path_src, path_dest);},
-            &DebouncedEvent::Rescan => {},
-            &DebouncedEvent::Error(ref e, ref path) => {info!("error {:?}: {:?}", &path, e)},
-        }
-        Ok(())
-    }
-}
-
-// 获取忽略文件
-fn get_dir_ignored<P, S>(root: P, exclude: Option<&Vec<S>>, ignore_path: &mut Vec<String>) -> Result<()>
-where P: AsRef<Path> + PartialEq, S: AsRef<str>{
-    if !root.as_ref().metadata()?.file_type().is_dir() {
-        info!("the root path is not directory!");
-    } else {
-        for ipath in exclude.unwrap() {
-            let temp_path_str = root.as_ref().join(Path::new(ipath.as_ref())).to_str().unwrap();
-//          let temp_path_str = temp_path.to_str().unwrap();
-            for entry in glob(temp_path_str).unwrap() {
-                match entry {
-                    Ok(path) => ignore_path.push(path.to_str().unwrap().into()),
-                    Err(e) => error!("error when get glob path: {:?}", e),
-                }
-            }
-
-        }
-        for entry in fs::read_dir(root.as_ref())? {
-            let entry = entry?;
-            let path = entry.path();
-            if ignore_path.iter().any(|r| r.as_str()==path.to_str().unwrap_or("")){
-                continue;
-            } else {
-                info!("find unignored path: {:?}", path);
-            }
-            if entry.file_type()?.is_dir() {
-                info!("{} is directory", path.display());
-                get_dir_ignored(&path, exclude, ignore_path)?;
-            } else if entry.file_type()?.is_file(){
-                info!("{} is file", path.display());
-            } else if entry.file_type()?.is_symlink(){
-                info!("{} is symlink", path.display());
-            } else {
-                warn!("{} is unknown type", path.display())
-            }
-        }
-    }
-    Ok(())
-}
-
-
-fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient, ignore_paths: Option<Vec<P>>) -> Result<()>{
-    info!("watching path: {:?}", src_path.as_ref());
+fn start_watch(src_path: &Path, dest_root: &Path, sftp: &ssh::SftpClient, exclude_files: &mut Vec<PathBuf>, mut include_files: &mut Vec<PathBuf>, re_vec: &Vec<Regex>) -> Result<()>{
+    info!("watching path: {:?}", src_path);
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
         src_path: src_path,
@@ -124,33 +46,55 @@ fn start_watch<P: AsRef<Path>>(src_path: P, dest_root: P, sftp: &ssh::SftpClient
         tx: tx,
         rx:rx,
         sftp: sftp,
-        ignore_paths: ignore_paths,
+        exclude_files: exclude_files,
+        include_files: include_files,
+        re_vec: re_vec,
     };
     watchdog.start()?;
     Ok(())
 }
 
 
-pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: Option<S>, password: Option<S>, identity: Option<S>) -> Result<()>
-    where S: AsRef<str> + Debug + PartialEq,
-          P: AsRef<Path> + Debug
-{
+fn get_file_ignored(root: &Path, re_vec: &Vec<Regex>, exclude_files: &mut Vec<PathBuf>, include_files: &mut Vec<PathBuf>) -> Result<()> {
+    if util::is_exclude(&root, re_vec) {
+        info!("find unignored path: {:?}", root.as_os_str());
+        exclude_files.push(root.to_path_buf())
+    } else {
+        include_files.push(root.to_path_buf())
+    }
+    if !root.metadata()?.file_type().is_dir() {
+        for entry in fs::read_dir(root)? {
+            let entry = entry?;
+            let path_buf = entry.path();
+            if util::is_exclude(path_buf.as_path(), re_vec) {
+                exclude_files.push(path_buf.clone());
+            } else {
+                include_files.push(path_buf.clone());
+            }
+            if path_buf.is_dir() {
+                get_file_ignored(path_buf.as_path(), re_vec, exclude_files, include_files);
+            }
+        }
+    }
+    Ok(())
+}
+
+pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, user: Option<&str>, password: Option<&str>, identity: Option<&str>) -> Result<()> {
     let log = slog_scope::logger();
     // get the global config
     let global_config = toml_parser::get_config(config_path)?;
-    info!("{:?}", global_config);
-    let project = toml_parser::get_project_info(&project_name, &global_config)?;
-    info!("{:?}", project);
+    info!("global config: {:?}", global_config);
+    let project = toml_parser::get_project_info(project_name, &global_config)?;
+    info!("get project: {:?}", project);
 
     // get host config
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
 
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
-    let mut host: sshconfig::Host = match server_host.get(server.as_ref()) {
+    let mut host: sshconfig::Host = match server_host.get(server) {
         Some(host) => {
             let mut host = host.clone();
             if host.identityfile.is_none() {
-                // TODO: get password from input or get key file from input
                 host.password = global_config.global_password;
                 if global_config.global_key.is_some() {
                     host.identityfile = Some(Path::new(global_config.global_key.unwrap().as_str()).into());
@@ -160,7 +104,7 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
         },
         None => {
             //let hostname = sshconfig::get_ip();
-            let hostname = sshconfig::get_ip(server.as_ref())?;
+            let hostname = sshconfig::get_ip(server)?;
             let g_user = global_config.global_user;
             // TODO: get password or key file from input
             let identityfile = match global_config.global_key{
@@ -174,29 +118,40 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
     };
 
     // update user, password, identity file
-    if user.is_some() {
-        host.user = user.unwrap().as_ref().to_string();
-    }
-    if password.is_some() {
-        host.password = Some(password.unwrap().as_ref().to_string());
-        host.identityfile = None;
-    }
-    if identity.is_some() {
-        host.identityfile = Some(Path::new(identity.unwrap().as_ref()).to_path_buf());
-        host.password = None;
+    match user {
+        Some(u) => {
+            host.user = u.to_string();
+        },
+        None => {}
     }
 
-    info!("{:?}", host);
+    match password {
+        Some(p) => {
+            host.password = Some(p.to_string());
+            host.identityfile = None;
+        },
+        None => {}
+    }
+
+    match identity {
+        Some(i) => {
+            host.identityfile = Some(Path::new(i).to_path_buf());
+            host.password = None;
+        },
+        None => {}
+    }
+
+    info!("get host: {:?}", host);
 
     // connect
     let user = host.user.clone();
     let sshclient = ssh::SSHClient::new(host.hostname, host.port, host.user, host.password, host.identityfile)?;
-    let cmd_output = sshclient.run_cmd("ls /tmp")?;
-    info!("{:?}", cmd_output);
+    let cmd_output = sshclient.run_cmd("whoami")?;
+    info!("get cmd 'whoami' result: {:?}", cmd_output);
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
-    let common_home = match user.as_ref() {
+    let common_home = match user.as_str() {
         "root" => "/root".to_string(),
         _ => format!("/home/{}", user),
     };
@@ -208,14 +163,28 @@ pub fn run<S, P>(config_path: P, project_name: S, server: S, watch: bool, user: 
         }
     }).into_owned();
     info!("dest path: {}", dest_root);
+    let dest_path = Path::new(dest_root.as_str());
 
     // get ignore dir
-    let mut v = Vec::new();
-    get_dir_ignored(&project.src, project.exclude.as_ref(), &mut v)?;
+    let mut exclude_files = Vec::new();
+    let mut include_files = Vec::new();
+    let mut re_vec :Vec<Regex> = Vec::new();
+    match project.exclude {
+        None =>{},
+        Some(vec) => {
+            for v in vec.iter() {
+                let tmp_re = Regex::new(v).unwrap();
+                re_vec.push(tmp_re);
+            }
+        }
+    }
+    info!("exclude setting: {:?}", re_vec);
+
+    let src_path = Path::new(&project.src);
+    get_file_ignored(src_path, &re_vec, &mut exclude_files, &mut include_files)?;
 
     //start watch
-    let ignore_paths = if v.len() > 0 {Some(v)} else {None};
-    start_watch(project.src, dest_root, &sftpclient, ignore_paths)?;
+    start_watch(src_path, dest_path, &sftpclient, &mut exclude_files, &mut include_files, &re_vec)?;
 
     Ok(())
 }

@@ -10,7 +10,7 @@ fn main() {
 
     let args: Vec<_> = env::args().collect();
     if args.len() != 3 {
-        println!("rs-auto-sync local_path remote_path");
+        info!("rs-auto-sync local_path remote_path");
         return;
     }
 
@@ -19,7 +19,7 @@ fn main() {
     let local_path = Path::new(&local_path_string);
 
     if !local_path.starts_with("/") {
-        println!("plz rewrite local_path as absolute path");
+        info!("please rewrite local_path as absolute path");
         return;
     }
 
@@ -45,7 +45,7 @@ fn main() {
             continue;
         }
 
-        println!("{:?}", event);
+        info!("{:?}", event);
 
         if event.flag.contains(fsevent::ITEM_REMOVED) ||
             event.flag.contains(fsevent::ITEM_RENAMED) {
@@ -81,9 +81,9 @@ fn rsync (source :&str, target :&str) {
             panic!("failed to execute process: {}", e)
         });
     if output.stdout.len() > 0 {
-        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     }
     if output.stderr.len() > 0 {
-        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+        error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
 }

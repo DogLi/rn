@@ -32,10 +32,11 @@ impl SSHClient {
             None => {
                 match password{
                     None => {
-                        println!("no passowrd or priv_key");
+                        error!("no passowrd or priv_key");
                         bail!("Password or private key should be set!");
                     },
                     Some(pass) => {
+                        info!("use password: {:?}", pass.as_ref());
                         session.userauth_password(username.as_ref(), pass.as_ref())
                             .chain_err(||
                                 format!("connect server failed with username: {}, password: {:?}", username.as_ref(), pass.as_ref())
@@ -133,10 +134,12 @@ impl <'a> SftpClient<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use shellexpand::tilde;
 
     #[test]
     fn test_connect() {
-        let identity = Path::new("~/.ssh/id_rsa");
+        let id = tilde("~/.ssh/id_rsa").into_owned();
+        let identity = Path::new(id.as_str());
 
         let ssh_client = SSHClient::new("ubuntu", 22, "ubuntu", None::<&str>, Some(identity)).unwrap();
         ssh_client.run_cmd("ls /tmp");

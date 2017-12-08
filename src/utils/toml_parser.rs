@@ -44,8 +44,6 @@ where P: AsRef<Path> + Debug
 
 pub fn get_project_info<S>(project_name: S, config: &GlobalConfig) -> Result<Project>
     where S: AsRef<str> + Debug + PartialEq{
-    println!("{:?}", config);
-
     if config.projects.is_some() {
         for project in config.projects.as_ref().unwrap() {
             println!("project: {:?}", project);
