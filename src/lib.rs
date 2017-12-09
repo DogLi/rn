@@ -163,8 +163,10 @@ pub fn run(config_path: &Path, project_name: &str, server: &str, watch: bool, us
         None =>{},
         Some(vec) => {
             for v in vec.iter() {
-                let tmp_re = Regex::new(v).unwrap();
-                re_vec.push(tmp_re);
+                let re = util::create_re(v.as_str());
+                if re.is_some() {
+                    re_vec.push(re.unwrap());
+                }
             }
         }
     }
