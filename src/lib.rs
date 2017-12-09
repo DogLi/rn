@@ -1,6 +1,7 @@
 pub mod utils;
 pub mod errors;
 pub mod my_logger;
+pub mod rsync;
 
 extern crate glob;
 extern crate ssh2;

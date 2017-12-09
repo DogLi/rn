@@ -1,89 +1,59 @@
-extern crate fsevent;
-
-use std::thread;
-use std::sync::mpsc::channel;
+use errors::*;
 use std::process::Command;
-use std::path::Path;
-use std::env;
 
-fn main() {
-
-    let args: Vec<_> = env::args().collect();
-    if args.len() != 3 {
-        info!("rs-auto-sync local_path remote_path");
-        return;
+pub fn rsync(identity: &str,
+             source: &str,
+             dest: &str,
+             username: &str,
+             remote_ip: &str,
+             delete: bool,
+             exclude_files: Option<Vec<&str>>) -> Result<()>{
+    let login_settings = format!(r#"'ssh -i {} -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking no" -o "ConnectTimeout=2"'"#, identity);
+    let mut cmd = Command::new("rsync");
+    cmd.arg("-rtv").arg("-e").arg(login_settings);
+    if delete {
+        cmd.arg("--delete");
     }
-
-    let local_path_string = args[1].clone();
-    let remote_path_string = args[2].clone();
-    let local_path = Path::new(&local_path_string);
-
-    if !local_path.starts_with("/") {
-        info!("please rewrite local_path as absolute path");
-        return;
+    match exclude_files {
+        None => {},
+        Some(exclude_files) => {
+            for file in exclude_files.iter(){
+                cmd.arg("--exclude").arg(file);
+            }
+        }
     }
-
-    rsync(&local_path_string, &remote_path_string);
-
-    //watch fs event
-    let (event_tx, event_rx) = channel();
-    thread::spawn(move || {
-        let fsevent = fsevent::FsEvent::new(event_tx);
-        fsevent.append_path(&args[1]);
-        fsevent.observe();
-    });
-
-    // fs event handled here
-    loop {
-        let result = event_rx.recv();
-        if !result.is_ok(){
-            continue;
-        }
-        let event = result.unwrap();
-        // ignore hiden files
-        if !event.path.find("/.").is_none() {
-            continue;
-        }
-
-        info!("{:?}", event);
-
-        if event.flag.contains(fsevent::ITEM_REMOVED) ||
-            event.flag.contains(fsevent::ITEM_RENAMED) {
-            rsync(&local_path_string, &remote_path_string);
-            continue;
-        }
-
-        let event_path = Path::new(&event.path);
-        let parent_event_path = event_path.parent().unwrap();
-        let parent_local_path = local_path.parent().unwrap();
-        let target_remote_path = parent_event_path
-            .to_str().unwrap()
-            .replace(parent_local_path.to_str().unwrap(), &remote_path_string);
-        rsync(&event.path, &target_remote_path);
-    }
-}
-
-
-fn rsync (source :&str, target :&str) {
-    info!(">> rsync {} {}", source, target);
-    let options = vec![
-        "-r",
-        "-v",
-        "--exclude=.[a-zA-Z0-9]*",
-        "--filter=:- .gitignore",
-        "--delete"];
-    let output = Command::new("rsync")
-        .args(&options)
-        .arg(source)
-        .arg(target)
-        .output()
-        .unwrap_or_else(|e| {
-            panic!("failed to execute process: {}", e)
-        });
+    let target = format!("{}@{}:{}", username, remote_ip, dest);
+    cmd.arg(source).arg(target);
+    let output = cmd.output()?;
     if output.stdout.len() > 0 {
+        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
         info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
     }
     if output.stderr.len() > 0 {
+        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use shellexpand::tilde;
+
+    #[test]
+    fn test_rsync() {
+        let id = tilde("~/.ssh/id_rsa").into_owned();
+        let id = id.as_str();
+        let source = "/tmp/a";
+        let dest = "/home/ubuntu/a";
+        let remote_ip = "ubuntu";
+        let username = "ubuntu";
+        let exclude_files = vec!["a.txt", "b.txt", "c.txt"];
+        if let Err(e) = rsync(id, source, dest, username, remote_ip, false, Some(exclude_files)) {
+            assert!(false, "aaaaaaaaaaaaa");
+        } else {
+            assert!(true);
+        }
     }
 }
