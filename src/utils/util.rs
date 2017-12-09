@@ -33,16 +33,17 @@ pub fn is_exclude(path: &Path, re_vec: &Vec<Regex>) -> bool{
     false
 }
 
+/// create Regex from a given string,
+/// the string is in as glob mode like *.jpg, a/*/*.jpg
 pub fn create_re(normal_str: &str) -> Option<Regex> {
     let mut re_string = normal_str.to_string().clone();
     re_string = re_string
         .replace(".", r"\.")
         .replace("*", r"[^/]*");
-    re_string = format!(r"{}[$/]", re_string);
-    if !re_string.starts_with(r"/") {
+    re_string = format!(r"{}($|/)", re_string);
+    if re_string.starts_with(r"/") {
         re_string = format!(r"^{}", re_string);
     }
-    println!("{}", re_string);
     match Regex::new(re_string.as_str()) {
         Ok(re) => { Some(re) },
         Err(e) => {
@@ -90,28 +91,36 @@ mod tests {
     #[test]
     fn test_create_re_string() {
         let a = "*.jpg";
-        let re =  create_re(a);
-        let re = Some(Regex::new(r"^[^/]*\.jpg[$/]").unwrap());
-        assert!(re.is_some());
-        match re{
-            Some(re) => {
-                println!("re: {:?}", re);
-                assert!(re.is_match(r"a/b/c.jpg"));
-                assert!(!re.is_match(r"a/b/c.jpga"));
-            },
-            None => {}
-        }
+        let some_re =  create_re(a);
+        assert!(some_re.is_some());
+        let re = &some_re.unwrap();
+        assert!(re.is_match("a/b/c.jpg"));
+        assert!(!re.is_match("a/b/c.jpga"));
 
+        let a = "a/b/*.jpg";
+        let some_re = create_re(a);
+        assert!(some_re.is_some());
+        let re = &some_re.unwrap();
+        assert!(re.is_match("a/b/c.jpg"));
+        assert!(!re.is_match("a/c.jpg"));
+        assert!(!re.is_match("a/b/c.jpga"));
+        assert!(!re.is_match("a/b1/c.jpg"));
 
+        let a = "a/*/*.jpg";
+        let some_re = create_re(a);
+        assert!(some_re.is_some());
+        let re = &some_re.unwrap();
+        assert!(re.is_match("a/b/c.jpg"));
+        assert!(re.is_match("a/b1/c.jpg"));
+        assert!(!re.is_match("a/b/c.jpga"));
+        assert!(!re.is_match("a/c.jpg"));
 
-
-//        let a = "/tmp/*.jpg";
-//        let re = create_re(a).unwrap();
-//        let path1 = Path::new("/tmp/a.jpg");
-//        let path2 = Path::new("/tmp/a/a.jpg");
-//        let re_vec = vec!(re);
-//        assert!(is_exclude(path1, &re_vec));
-//        assert!(!is_exclude(path2, &re_vec));
+        let a = "/a/b/*.jpg";
+        let some_re = create_re(a);
+        assert!(some_re.is_some());
+        let re = &some_re.unwrap();
+        assert!(re.is_match("/a/b/c.jpg"));
+        assert!(!re.is_match("/a/a/b/c.jpg"));
     }
 }
 
