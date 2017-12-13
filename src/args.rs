@@ -26,6 +26,7 @@ pub fn get_args() -> clap::ArgMatches<'static> {
                  .long("config")
                  .takes_value(true)
                  .required(false)
+                 .default_value("~/bin/settings.toml")
                  .help("Config for rn's variables."))
         .arg(clap::Arg::with_name("user")
                  .long("user")

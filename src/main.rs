@@ -24,7 +24,6 @@ fn main() {
     // Gets a value for config if supplied by user, or defaults to "~/bin/settings.toml"
     let config_path = tilde(matches.value_of("config").unwrap_or("~/bin/settings.toml")).into_owned();
     let config_path = config_path.as_str();
-    let config_path = "~/bin/settings.toml";
     let server = matches.value_of("server").unwrap();
     let project_name = matches.value_of("project").unwrap_or("default");
     let watch = matches.occurrences_of("watch") == 1;
@@ -48,6 +47,10 @@ fn main() {
     let config_path_buf = &PathBuf::from(config_path);
 
     if let Err(ref e) = run(config_path_buf, project_name, server, watch, user, password, identity) {
+        if log_level <= 2 {
+            println!("error: {}", e);
+            std::process::exit(1);
+        }
         error!("error: {}", e);
         for e in e.iter().skip(1) {
             error!("caused by: {}", e);
