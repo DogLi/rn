@@ -8,7 +8,7 @@ pub fn rsync(identity: &str,
              remote_ip: &str,
              delete: bool,
              exclude_files: Option<Vec<&str>>) -> Result<()>{
-    let login_settings = format!(r#"'ssh -i {} -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking no" -o "ConnectTimeout=2"'"#, identity);
+    let login_settings = format!(r#"ssh -i {} -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking no" -o "ConnectTimeout=2""#, identity);
     let mut cmd = Command::new("rsync");
     cmd.arg("-rtv").arg("-e").arg(login_settings);
     if delete {
