@@ -134,13 +134,8 @@ pub fn run(
         }
     };
     // update user, password, identity file
-    match user {
-        Some(u) => {
-            host.user = u.to_string();
-        },
-        None => {
-            host.user = "root".to_string();
-        }
+    if user.is_some() {
+        host.user = user.unwrap().to_string();
     }
 
     match password {
@@ -211,6 +206,11 @@ pub fn run(
     debug!("exclude setting: {:?}", re_vec);
 
     let src_path = Path::new(&project.src);
+    // if src_path is link such as /tmp in MacOS, change it to real path, which is /private/tmp
+    let real_path_buf = util::realpath(src_path)?;
+    let src_path = real_path_buf.as_path();
+
+    debug!("source file: {:?}", src_path);
     get_file_ignored(src_path, &re_vec, &mut exclude_files, &mut include_files)?;
 
     rsync::sync(
