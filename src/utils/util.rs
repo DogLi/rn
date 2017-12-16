@@ -11,23 +11,23 @@ pub fn load_file(file_path: &Path) -> Result<String> {
     match File::open(file_path) {
         Ok(mut f) => {
             f.read_to_string(&mut contents).unwrap();
-        },
+        }
         Err(e) => {
             let err_msg = format!("error when open file: {:?}, {:?}", file_path, e.to_string());
             bail!(err_msg.as_str());
-        },
+        }
     }
     Ok(contents)
 }
 
 /// check if a path is exclude by regex
-pub fn is_exclude(path: &Path, re_vec: &Vec<Regex>) -> bool{
+pub fn is_exclude(path: &Path, re_vec: &Vec<Regex>) -> bool {
     let path_str = path.to_str().unwrap();
     println!("path to str: {:?}, re_vec: {:?}", path_str, re_vec);
 
     for re in re_vec.iter() {
         if re.is_match(path_str) {
-            return true
+            return true;
         }
     }
     false
@@ -37,15 +37,13 @@ pub fn is_exclude(path: &Path, re_vec: &Vec<Regex>) -> bool{
 /// the string is in as glob mode like *.jpg, a/*/*.jpg
 pub fn create_re(normal_str: &str) -> Option<Regex> {
     let mut re_string = normal_str.to_string().clone();
-    re_string = re_string
-        .replace(".", r"\.")
-        .replace("*", r"[^/]*");
+    re_string = re_string.replace(".", r"\.").replace("*", r"[^/]*");
     re_string = format!(r"{}($|/)", re_string);
     if re_string.starts_with(r"/") {
         re_string = format!(r"^{}", re_string);
     }
     match Regex::new(re_string.as_str()) {
-        Ok(re) => { Some(re) },
+        Ok(re) => Some(re),
         Err(e) => {
             error!("error to create re: {}, {:?}", re_string, e);
             None
@@ -80,7 +78,7 @@ mod tests {
 
     #[test]
     fn test_is_exclude() {
-        let mut re_vec :Vec<Regex> = Vec::new();
+        let mut re_vec: Vec<Regex> = Vec::new();
         re_vec.push(Regex::new(r"\.git$").unwrap());
         let path1 = Path::new("a/b/.git");
         assert!(is_exclude(path1, &re_vec));
@@ -91,7 +89,7 @@ mod tests {
     #[test]
     fn test_create_re_string() {
         let a = "*.jpg";
-        let some_re =  create_re(a);
+        let some_re = create_re(a);
         assert!(some_re.is_some());
         let re = &some_re.unwrap();
         assert!(re.is_match("a/b/c.jpg"));
@@ -121,6 +119,12 @@ mod tests {
         let re = &some_re.unwrap();
         assert!(re.is_match("/a/b/c.jpg"));
         assert!(!re.is_match("/a/a/b/c.jpg"));
+
+        let a = "hello*world";
+        let some_re = create_re(a);
+        assert!(some_re.is_some());
+        let re = &some_re.unwrap();
+        assert!(re.is_match("a/helloabcworld/b"));
+        assert!(re.is_match("helloworld"));
     }
 }
-

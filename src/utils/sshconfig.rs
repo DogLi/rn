@@ -2,7 +2,7 @@ use regex::Regex;
 use errors::*;
 use std::path::{Path, PathBuf};
 use std::io::prelude::*;
-use std::io::{BufReader};
+use std::io::BufReader;
 use std::fs::File;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -22,13 +22,28 @@ pub struct Host {
 
 
 impl Host {
-    pub fn new<S, P>(hostname: S, user: S, identityfile: Option<P>, password: Option<S>, port: Option<u16>) -> Self
-    where S: AsRef<str>, P: AsRef<Path> {
-        Host{
+    pub fn new<S, P>(
+        hostname: S,
+        user: S,
+        identityfile: Option<P>,
+        password: Option<S>,
+        port: Option<u16>,
+    ) -> Self
+    where
+        S: AsRef<str>,
+        P: AsRef<Path>,
+    {
+        Host {
             hostname: hostname.as_ref().to_string(),
             user: user.as_ref().to_string(),
-            identityfile: match identityfile {None => None, Some(ref file) => Some(file.as_ref().to_owned())},
-            password: match password {None => None, Some(ref pwd) => Some(pwd.as_ref().to_string())},
+            identityfile: match identityfile {
+                None => None,
+                Some(ref file) => Some(file.as_ref().to_owned()),
+            },
+            password: match password {
+                None => None,
+                Some(ref pwd) => Some(pwd.as_ref().to_string()),
+            },
             port: port.unwrap_or(22),
         }
     }
@@ -37,11 +52,14 @@ impl Host {
 /// 解析ssh config文件
 ///
 pub fn parse_ssh_config<P>(path: P) -> Result<HashMap<String, Host>>
-where P: AsRef<Path> + Debug{
+where
+    P: AsRef<Path> + Debug,
+{
     let mut result = HashMap::new();
 
-    let f = File::open(path.as_ref())
-        .map_err(|err| format!("open {:?} failed: {}", path, err.to_string()))?;
+    let f = File::open(path.as_ref()).map_err(|err| {
+        format!("open {:?} failed: {}", path, err.to_string())
+    })?;
     let file = BufReader::new(&f);
 
     let mut sections = Vec::new();
@@ -59,8 +77,7 @@ where P: AsRef<Path> + Debug{
                 sub_section.clear();
                 sub_section.push(line);
                 continue;
-            }
-            else {
+            } else {
                 sub_section.push(line);
                 continue;
             }
@@ -111,17 +128,17 @@ where P: AsRef<Path> + Debug{
 /// 20 -> 10.10.20.20
 /// 30.20 -> 10.10.30.20
 /// other_dns -> other_dns
-pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String>{
+pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String> {
     let hostname = hostname.as_ref();
-    let ip = if  Regex::new(r"^\d+$")?.is_match(hostname) {
-                format!("10.10.20.{}", hostname)
-            } else if Regex::new(r"^\d+\.\d+$")?.is_match(hostname) {
-                format!("10.10.{}", hostname)
-            } else if Regex::new(r"^q\d+$")?.is_match(hostname) {
-                format!("192.168.1.{}", hostname.split_at(1).1)
-            } else {
-                format!("{}", hostname)
-            };
+    let ip = if Regex::new(r"^\d+$")?.is_match(hostname) {
+        format!("10.10.20.{}", hostname)
+    } else if Regex::new(r"^\d+\.\d+$")?.is_match(hostname) {
+        format!("10.10.{}", hostname)
+    } else if Regex::new(r"^q\d+$")?.is_match(hostname) {
+        format!("192.168.1.{}", hostname.split_at(1).1)
+    } else {
+        format!("{}", hostname)
+    };
     Ok(ip)
 }
 
@@ -151,20 +168,26 @@ Host ubuntu
         let v = parse_ssh_config(tmp_path).unwrap();
 
         let mut result = HashMap::new();
-        result.insert("pi".to_string(), Host{
-            hostname: "10.10.80.83".to_string(),
-            identityfile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
-            user: "pi".to_string(),
-            password: None,
-            port: 22,
-        });
-        result.insert("ubuntu".to_string(), Host{
-            hostname: "192.168.75.129".to_string(),
-            identityfile: None,
-            user: "ubuntu".to_string(),
-            password: None,
-            port: 22,
-        });
+        result.insert(
+            "pi".to_string(),
+            Host {
+                hostname: "10.10.80.83".to_string(),
+                identityfile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
+                user: "pi".to_string(),
+                password: None,
+                port: 22,
+            },
+        );
+        result.insert(
+            "ubuntu".to_string(),
+            Host {
+                hostname: "192.168.75.129".to_string(),
+                identityfile: None,
+                user: "ubuntu".to_string(),
+                password: None,
+                port: 22,
+            },
+        );
         assert_eq!(result, v);
     }
 

@@ -9,8 +9,7 @@ use shellexpand::tilde;
 
 
 #[derive(Debug, Deserialize)]
-pub struct GlobalConfig
-{
+pub struct GlobalConfig {
     pub global_user: String,
     pub global_password: Option<String>,
     pub global_key: Option<String>,
@@ -19,22 +18,21 @@ pub struct GlobalConfig
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
-pub struct Project{
+pub struct Project {
     pub name: String,
     pub src: String,
     pub dest: String,
     pub exclude: Option<Vec<String>>,
 }
 
-pub fn get_config(toml_path: &Path) -> Result<GlobalConfig>
-{
+pub fn get_config(toml_path: &Path) -> Result<GlobalConfig> {
     // get the project settings config from *.toml file
     let toml_string = load_file(toml_path)?;
     let mut g_config: GlobalConfig = toml::from_str(toml_string.as_str())?;
     // change ~ into $HOME in the key
-    g_config.global_key = match g_config.global_key{
+    g_config.global_key = match g_config.global_key {
         None => None,
-        Some(key) => Some(tilde(&key).into_owned())
+        Some(key) => Some(tilde(&key).into_owned()),
     };
 
     Ok(g_config)
@@ -42,10 +40,12 @@ pub fn get_config(toml_path: &Path) -> Result<GlobalConfig>
 
 
 pub fn get_project_info<S>(project_name: S, config: &GlobalConfig) -> Result<Project>
-    where S: AsRef<str> + Debug + PartialEq{
+where
+    S: AsRef<str> + Debug + PartialEq,
+{
     if config.projects.is_some() {
         for project in config.projects.as_ref().unwrap() {
-            if project.name == project_name.as_ref(){
+            if project.name == project_name.as_ref() {
                 let mut info = project.clone();
                 info.src = tilde(&info.src).into_owned();
                 return Ok(info);
@@ -83,12 +83,14 @@ exclude = [".git", "prometheus.yaml"]
 
         let project_name = "default";
         let project = get_project_info(project_name, &global_config).unwrap();
-        assert_eq!(project,
-                  Project{
-                      name: "default".to_string(),
-                      src: tilde("~/Desktop/cloud/").into_owned(),
-                      dest: "~/qdata-cloud/".to_string(),
-                      exclude: Some(vec![".git".to_string(), "prometheus.yaml".to_string()])
-                })
+        assert_eq!(
+            project,
+            Project {
+                name: "default".to_string(),
+                src: tilde("~/Desktop/cloud/").into_owned(),
+                dest: "~/qdata-cloud/".to_string(),
+                exclude: Some(vec![".git".to_string(), "prometheus.yaml".to_string()]),
+            }
+        )
     }
 }

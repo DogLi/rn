@@ -10,8 +10,7 @@ use slog::{Level, Drain};
 
 
 
-pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::Logger>
-{
+pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::Logger> {
     let log_level = match log_level {
         0 => Level::Critical,
         1 => Level::Error,
@@ -26,7 +25,8 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let console_drain = slog_async::Async::new(drain).build().fuse();
-    let global_info = slog_o!("version" => "0.5",
+    let global_info =
+        slog_o!("version" => "0.5",
                         "location" => slog::FnValue(move |info| {
                             format!("{}:{} {}",
                                     info.file(),
@@ -42,7 +42,9 @@ pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::
             .truncate(false)
             .open(log_path.unwrap())?;
 
-        let builder = slog_json::Json::new(file).add_key_value(slog_o!("type"=> "json")).add_default_keys();
+        let builder = slog_json::Json::new(file)
+            .add_key_value(slog_o!("type"=> "json"))
+            .add_default_keys();
         let drain = builder.build().map(slog::Fuse);
         let file_drain = slog_async::Async::new(drain).build().fuse();
         // join together all drains
