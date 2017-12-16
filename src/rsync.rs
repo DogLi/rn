@@ -1,22 +1,37 @@
-use std::io;
+use std::{io, fs};
 use std::path::Path;
 use std::process::Command;
+use super::utils::sshconfig::servername2ip;
 
-pub fn rsync<P, S>(
+pub fn sync<P, S, T>(
     identity: Option<P>,
-    password: Option<S>,
+    password: Option<T>,
     port: u16,
-    source: &str,
-    dest: &str,
-    username: &str,
-    remote_ip: &str,
+    source: S,
+    dest: S,
+    username: S,
+    remote_ip: S,
     delete: bool,
-    exclude_files: Option<&Vec<&str>>,
+    exclude_files: Option<Vec<T>>,
 ) -> io::Result<()>
 where
     P: AsRef<Path>,
     S: AsRef<str>,
+    T: AsRef<str>,
 {
+    let username = username.as_ref();
+    let source = source.as_ref();
+    let path = Path::new(source);
+    let file_type = fs::metadata(path)?.file_type();
+    // if the source file is directory and not ends with "/", we should add it.
+    let mut source = String::from(source);
+    if file_type.is_dir() && !source.ends_with("/") {
+        source.push_str("/")
+    }
+    debug!("source file is {:?}", source);
+    let dest = dest.as_ref();
+    let remote_ip = servername2ip(remote_ip.as_ref());
+
     let login_strings: String;
     match identity {
         None => {
@@ -26,15 +41,16 @@ where
                 }
                 Some(password) => {
                     let pwd = password.as_ref();
-                    login_strings = format!(r#"sshpass {} ssh  -l {} -p {}"#, pwd, username, port);
+                    login_strings = format!(r#"sshpass -p {} ssh  -l {} -p {}"#, pwd, username, port);
                 }
             }
         }
         Some(path) => {
             let path = path.as_ref().to_str().unwrap();
-            login_strings = format!(r#"ssh -i {} -p {} -o "UserKnownHostsFile=/dev/null" \
-                                                       -o "StrictHostKeyChecking no" \
-                                                       -o "ConnectTimeout=2""#, path, port);
+            login_strings = format!(r#"ssh -i {} -p {} -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking no" -o "ConnectTimeout=2""#,
+                path,
+                port
+            );
         }
     }
     let mut cmd = Command::new("rsync");
@@ -46,12 +62,13 @@ where
         None => {}
         Some(exclude_files) => {
             for file in exclude_files.iter() {
-                cmd.arg("--exclude").arg(file);
+                cmd.arg("--exclude").arg(file.as_ref());
             }
         }
     }
     let target = format!("{}@{}:{}", username, remote_ip, dest);
     cmd.arg(source).arg(target);
+    debug!("{:?}", cmd);
     let output = cmd.output()?;
     if output.stdout.len() > 0 {
         println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
@@ -71,7 +88,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     #[test]
-    fn test_rsync() {
+    fn test_sync() {
         let source = "/tmp/a";
         let dest = "/home/ubuntu/a";
         let remote_ip = "ubuntu"; // 10.10.20.3 in /etc/hosts file
@@ -83,7 +100,7 @@ mod tests {
         let id = tilde("~/.ssh/id_rsa.bak").into_owned();
         let id_file = Path::new(id.as_str());
         let password = None::<&str>;
-        if let Err(e) = rsync(
+        if let Err(e) = sync(
             Some(id_file),
             password,
             port,
@@ -92,7 +109,7 @@ mod tests {
             username,
             remote_ip,
             false,
-            Some(&exclude_files),
+            Some(exclude_files),
         )
         {
             assert!(false, "rsync test indentity file failed");
@@ -103,8 +120,9 @@ mod tests {
         // test use password
         let id = None::<PathBuf>;
         let password = Some("nogame");
-        if let Err(e) = rsync(
-            Some(id_file),
+        let exclude_files = vec!["a.txt", "b.txt", "c.txt"];
+        if let Err(e) = sync(
+            id,
             password,
             port,
             source,
@@ -112,7 +130,7 @@ mod tests {
             username,
             remote_ip,
             false,
-            Some(&exclude_files),
+            Some(exclude_files),
         )
         {
             assert!(false, "rsync test password failed");

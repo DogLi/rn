@@ -30,9 +30,13 @@ impl SSHClient {
         S: AsRef<str>,
         P: AsRef<Path>,
     {
-        let address = &(ip.as_ref(), port).to_socket_addrs().unwrap().next().unwrap();
-        let tcp =
-            TcpStream::connect(address).expect("Couldn't connect to the server...");
+        let address = &(ip.as_ref(), port)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
+        debug!("get address: {}", address);
+        let tcp = TcpStream::connect(address).expect("Couldn't connect to the server...");
         // 1.21 experimental API: https://doc.rust-lang.org/nightly/std/net/struct.TcpStream.html#method.connect_timeout
         let timeout = Duration::new(2, 0);
         let mut tcp = TcpStream::connect_timeout(address, timeout).unwrap();
@@ -174,7 +178,7 @@ mod tests {
         let id = tilde("~/.ssh/id_rsa").into_owned();
         let identity = Path::new(id.as_str());
 
-        let ssh_client = SSHClient::new("ubuntu", 22, "ubuntu", None::<&str>, Some(identity))
+        let ssh_client = SSHClient::new("ubuntu", 2222, "ubuntu", None::<&str>, Some(identity))
             .unwrap();
         ssh_client.run_cmd("ls /tmp");
         let client = SftpClient::new(&ssh_client);

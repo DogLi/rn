@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::fmt::Debug;
 use shellexpand::tilde;
+use std::net::{ToSocketAddrs, SocketAddr};
 
 
 
@@ -112,7 +113,7 @@ where
                 let line_list: Vec<&str> = line.split_whitespace().collect();
                 let key_path = tilde(line_list[1]).into_owned();
                 host_obj.identityfile = Some(PathBuf::from(key_path));
-            } else if line.to_lowercase().starts_with("Port") {
+            } else if line.to_lowercase().starts_with("port") {
                 let line_list: Vec<&str> = line.split_whitespace().collect();
                 host_obj.port = u16::from_str(line_list[1])?;
             }
@@ -137,9 +138,20 @@ pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String> {
     } else if Regex::new(r"^q\d+$")?.is_match(hostname) {
         format!("192.168.1.{}", hostname.split_at(1).1)
     } else {
-        format!("{}", hostname)
+        bail!("get ip for host {} error!", hostname)
     };
     Ok(ip)
+}
+
+pub fn servername2ip(servername: &str) -> String {
+    let mut address = &(servername, 22).to_socket_addrs().unwrap().next();
+//    let add = address.next();
+    let ip = match *address {
+        Some(SocketAddr::V4(ref a)) => format!("{:?}", a.ip()),
+        Some(SocketAddr::V6(ref a)) => format!("{:?}", a.ip()),
+        None => format!("{:?}", servername),
+    };
+    ip
 }
 
 
@@ -157,6 +169,7 @@ mod tests {
     User pi
     PreferredAuthentications publickey
     IdentityFile ~/.ssh/id_rsa_foyu.pem
+    Port 2222
 
 Host ubuntu
     HostName 192.168.75.129
@@ -175,7 +188,7 @@ Host ubuntu
                 identityfile: Some(PathBuf::from(tilde("~/.ssh/id_rsa_foyu.pem").into_owned())),
                 user: "pi".to_string(),
                 password: None,
-                port: 22,
+                port: 2222,
             },
         );
         result.insert(
@@ -201,5 +214,16 @@ Host ubuntu
         assert_eq!(ip, "10.10.20.11".to_string());
         let ip = get_ip("30.11").unwrap();
         assert_eq!(ip, "10.10.30.11".to_string());
+    }
+
+    #[test]
+    fn test_servername2ip() {
+        let servername = "ubuntu";
+        let ip = servername2ip(servername);
+        assert_eq!("192.168.75.129".to_string(), ip);
+
+        let servername = "192.168.1.1";
+        let ip = servername2ip(servername);
+        assert_eq!(servername.to_string(), ip);
     }
 }

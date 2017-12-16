@@ -96,15 +96,17 @@ pub fn run(
     watch: bool,
     user: Option<&str>,
     password: Option<&str>,
+    port: Option<u16>,
     identity: Option<&str>,
 ) -> Result<()> {
     let global_config = toml_parser::get_config(config_path)?;
-    info!("global config: {:?}", global_config);
+    debug!("global config: {:?}", global_config);
     let project = toml_parser::get_project_info(project_name, &global_config)?;
-    info!("get project: {:?}", project);
+    debug!("get project: {:?}", project);
 
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
     let server_host = sshconfig::parse_ssh_config(ssh_conf_path)?;
+    debug!("server host: {:?}", server_host);
     let mut host: sshconfig::Host = match server_host.get(server) {
         Some(host) => {
             let mut host = host.clone();
@@ -135,15 +137,17 @@ pub fn run(
     match user {
         Some(u) => {
             host.user = u.to_string();
+        },
+        None => {
+            host.user = "root".to_string();
         }
-        None => {}
     }
 
     match password {
         Some(p) => {
             host.password = Some(p.to_string());
             host.identityfile = None;
-        }
+        },
         None => {}
     }
 
@@ -151,38 +155,43 @@ pub fn run(
         Some(i) => {
             host.identityfile = Some(Path::new(i).to_path_buf());
             host.password = None;
-        }
+        },
         None => {}
     }
 
-    debug!("get host: {:?}", host);
-    // connect
-    let user = host.user.clone();
+    match port {
+        Some(p) => {
+            host.port = p;
+        },
+        None => {}
+    }
+
+    debug!("get host: {:?}, port {:?}", host, port);
+    // TODO: use RC
+    let tmp_host = host.clone();
     let sshclient = ssh::SSHClient::new(
-        host.hostname,
-        host.port,
-        host.user,
-        host.password,
-        host.identityfile,
+        tmp_host.hostname,
+        tmp_host.port,
+        tmp_host.user,
+        tmp_host.password,
+        tmp_host.identityfile,
     )?;
-    // TODO: rsync directory
-    //    let cmd_output = sshclient.run_cmd("whoami")?;
-    //    debug!("get cmd 'whoami' result: {:?}", cmd_output);
 
     let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
-    let common_home = match user.as_str() {
+    let common_home = match host.user.as_str() {
         "root" => "/root".to_string(),
-        _ => format!("/home/{}", user),
+        user => format!("/home/{}", user),
     };
-    let dest_root = tilde_with_context(project.dest.as_str(), || if user == "root".to_string() {
+    let dest_root = tilde_with_context(project.dest.as_str(), || if host.user.as_str() == "root" {
         Some(Path::new("/root").into())
     } else {
         Some(Path::new(&common_home))
     }).into_owned();
-    info!("dest path: {}", dest_root);
-    let dest_path = Path::new(dest_root.as_str());
+    let dest_str = dest_root.as_str();
+    info!("dest path: {}", dest_str);
+    let dest_path = Path::new(dest_str);
 
     // get ignore dir
     let mut exclude_files = Vec::new();
@@ -190,7 +199,7 @@ pub fn run(
     let mut re_vec: Vec<Regex> = Vec::new();
     match project.exclude {
         None => {}
-        Some(vec) => {
+        Some(ref vec) => {
             for v in vec.iter() {
                 let re = util::create_re(v.as_str());
                 if re.is_some() {
@@ -199,10 +208,22 @@ pub fn run(
             }
         }
     }
-    info!("exclude setting: {:?}", re_vec);
+    debug!("exclude setting: {:?}", re_vec);
 
     let src_path = Path::new(&project.src);
     get_file_ignored(src_path, &re_vec, &mut exclude_files, &mut include_files)?;
+
+    rsync::sync(
+        host.identityfile,
+        host.password,
+        host.port,
+        project.src.as_str(),
+        dest_str,
+        host.user.as_str(),
+        host.hostname.as_str(),
+        true,
+        project.exclude,
+    )?;
 
     //start watch
     start_watch(

@@ -33,6 +33,12 @@ fn main() {
     let password = matches.value_of("password");
     let identity = matches.value_of("identity");
     let log_path = matches.value_of("log");
+    let port: Option<u16> = match matches.value_of("port") {
+        Some(p) => {
+            Some(p.parse().unwrap())
+        },
+        None => None,
+    };
 
     debug!("config path: {:?}", config_path);
     // TODO: set log path from args, and log_level
@@ -60,6 +66,7 @@ fn main() {
         watch,
         user,
         password,
+        port,
         identity,
     )
     {
