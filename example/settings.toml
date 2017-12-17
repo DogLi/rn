@@ -4,15 +4,21 @@ global_key = "~/.ssh/id_rsa"
 
 [[projects]]
 name = "default"
-src = "~/Desktop/cloud/"
-dest = "~/qdata-cloud/"
+src = "~/Desktop/default/"
+dest = "~/default/"
 exclude = [
             ".git",
-            "db.yaml",
             ".idea",
             ".vscode",
-            "qflame",
-            "static",
             "test",
-            "prometheus.yaml",
+        ]
+
+[[projects]]
+name = "test"
+src = "~/Desktop/test/"
+dest = "~/test/"
+exclude = [
+            ".git",
+            ".idea",
+            ".vscode",
         ]

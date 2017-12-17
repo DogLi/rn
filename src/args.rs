@@ -16,7 +16,7 @@ pub fn get_args() -> clap::ArgMatches<'static> {
         .arg(clap::Arg::with_name("server")
                  .required(true)
                  .index(1)
-                 .help("set the remote server name which comes from .ssh/config or inner rule."))
+                 .help("set the remote server name which comes from ~/.ssh/config or inner rule."))
         .arg(clap::Arg::with_name("watch")
                  .short("w")
                  .long("watch")
@@ -57,7 +57,7 @@ pub fn get_args() -> clap::ArgMatches<'static> {
         .arg(clap::Arg::with_name("v")
             .short("v")
             .multiple(true)
-            .help("Set the level of verbosity: 0v: Critical, v: Error, vv: Warning, vvv: info")
+            .help("see detail information")
         )
         .get_matches()
 }
