@@ -26,7 +26,7 @@ pub fn sync(host: &Host, project: &Project, delete: bool) -> io::Result<()> {
                 }
                 Some(ref password) => {
                     login_strings = format!(
-                        r#"sshpass -p {} ssh  -l {} -p {} -o "StrictHostKeyChecking no" -o "ConnectTimeout=2""#,
+                        r#"sshpass -p {} ssh  -l {} -p {} -o "ConnectTimeout=2""#,
                         password,
                         username,
                         host.port
@@ -60,11 +60,9 @@ pub fn sync(host: &Host, project: &Project, delete: bool) -> io::Result<()> {
     debug!("{:?}", cmd);
     let output = cmd.output()?;
     if output.stdout.len() > 0 {
-        println!("stdout: {}", String::from_utf8_lossy(&output.stdout));
-        info!("stdout: {}", String::from_utf8_lossy(&output.stdout));
+        info!("rsync output:\n {}", String::from_utf8_lossy(&output.stdout));
     }
     if output.stderr.len() > 0 {
-        println!("stderr: {}", String::from_utf8_lossy(&output.stderr));
         error!("stderr: {}", String::from_utf8_lossy(&output.stderr));
     }
     Ok(())

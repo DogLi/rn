@@ -2,8 +2,8 @@ extern crate libc;
 
 use errors::*;
 use std::fs::File;
-use std::io::{self, Read};
-use std::path::{Path, PathBuf};
+use std::io::Read;
+use std::path::Path;
 use regex::Regex;
 
 
@@ -49,43 +49,6 @@ pub fn create_re(normal_str: &str) -> Option<Regex> {
         Err(e) => {
             error!("error to create re: {}, {:?}", re_string, e);
             None
-        }
-    }
-}
-
-#[cfg(windows)]
-pub fn realpath(original: &Path) -> io::Result<PathBuf> {
-    Ok(original.to_path_buf())
-}
-
-#[cfg(unix)]
-pub fn realpath(original: &Path) -> Result<PathBuf> {
-    //use libc;
-    info!("find real path for {:?}", original);
-    use std::ffi::{OsString, CString};
-    use std::os::unix::prelude::*;
-
-    extern "C" {
-        fn realpath(
-            pathname: *const libc::c_char,
-            resolved: *mut libc::c_char,
-        ) -> *mut libc::c_char;
-    }
-
-    let path = CString::new(original.as_os_str().as_bytes())?;
-    let mut buf = vec![0u8; 16 * 1024];
-    unsafe {
-        let r = realpath(path.as_ptr(), buf.as_mut_ptr() as *mut _);
-        if r.is_null() {
-            return Err(io::Error::last_os_error().into());
-        }
-    }
-    // TODO: use ? in nightly
-    match buf.iter().position(|i| *i == 0) {
-        None => {bail!("error when get real path")},
-        Some(p) => {
-            buf.truncate(p);
-            Ok(PathBuf::from(OsString::from_vec(buf)))
         }
     }
 }
@@ -165,18 +128,5 @@ mod tests {
         let re = &some_re.unwrap();
         assert!(re.is_match("a/helloabcworld/b"));
         assert!(re.is_match("helloworld"));
-    }
-
-    #[test]
-    fn test_real_path() {
-        let path = Path::new("/tmp/a");
-        match realpath(path) {
-            Ok(path_buf) => {
-                assert_eq!(path_buf, PathBuf::from("/private/tmp/a"));
-            }
-            Err(e) => {
-                panic!("{:?}", e);
-            }
-        }
     }
 }

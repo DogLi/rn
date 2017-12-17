@@ -49,13 +49,13 @@ impl<'a, 'b> WatchDog<'a, 'b> {
 
     fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()> {
         match event {
-            &DebouncedEvent::NoticeWrite(ref path) |
-            &DebouncedEvent::NoticeRemove(ref path) => {
-                info!("do nothing");
-            }
+            &DebouncedEvent::NoticeWrite(ref _path) |
+            &DebouncedEvent::NoticeRemove(ref _path) => {},
+            &DebouncedEvent::Error(ref e, ref path) => {
+                error!("error in event: file: {:?}, error: {:?}", &path, e);
+            },
             _ => {
                 rsync::sync(self.host, self.project, true)?;
-                info!("do rsync!");
             }
         }
         Ok(())

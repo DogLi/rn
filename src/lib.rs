@@ -126,14 +126,7 @@ pub fn run(
         Some(Path::new(&common_home))
     }).into_owned();
 
-    //    let src_path = Path::new(project.src);
-    // if src_path is link such as /tmp in MacOS, change it to real path, which is /private/tmp
-    let real_path_buf = util::realpath(Path::new(&project.src))?;
-    let src_root = real_path_buf.into_os_string().into_string().unwrap();
-
-    project.src = src_root;
     project.dest = dest_root;
-
     rsync::sync(&host, &project, true)?;
 
     //start watch

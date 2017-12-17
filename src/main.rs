@@ -45,11 +45,10 @@ fn main() {
         Some(path_str) => Some(PathBuf::from(path_str)),
     };
     let log_level = matches.occurrences_of("v") as i8;
-    debug!("log level: {:?}", log_level);
     let log = my_logger::get_global_log(log_level, log_path).unwrap();
     // 必须明确写出这一句
     let _guard = slog_scope::set_global_logger(log);
-    info!(
+    debug!(
         "user: {:?}, password: {:?}, identity: {:?}",
         user,
         password,
@@ -70,7 +69,7 @@ fn main() {
     {
         if log_level == 0 {
             error!("error: {}", e);
-            std::process::exit(1);
+            return;
         }
         error!("error: {}", e);
         for e in e.iter().skip(1) {
