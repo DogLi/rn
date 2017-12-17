@@ -1,6 +1,7 @@
 use errors::*;
 use ssh2::{self, Sftp, Session};
 use std::io::prelude::*;
+use std::io::BufReader;
 use std::net;
 use std::fs::{self, File};
 use std::path::Path;
@@ -36,10 +37,9 @@ impl SSHClient {
             .next()
             .unwrap();
         debug!("get address: {}", address);
-        let tcp = TcpStream::connect(address).expect("Couldn't connect to the server...");
         // 1.21 experimental API: https://doc.rust-lang.org/nightly/std/net/struct.TcpStream.html#method.connect_timeout
         let timeout = Duration::new(2, 0);
-        let mut tcp = TcpStream::connect_timeout(address, timeout).unwrap();
+        let mut tcp = TcpStream::connect_timeout(address, timeout)?;
         let mut session = Session::new().unwrap();
         session.set_timeout(2000);
 
@@ -116,17 +116,19 @@ impl<'a> SftpClient<'a> {
         let mode = metadata.permissions().mode() as i32;
         let size = metadata.len(); // u64
 
-        let mut contents = String::new();
-        File::open(local_path.as_ref())?.read_to_string(
-            &mut contents,
-        )?;
-        let mut remote_file = self.ssh_client.session.scp_send(
-            remote_path,
-            mode,
-            size,
-            None,
-        )?;
-        remote_file.write(contents.as_bytes())?;
+        let f = File::open(local_path.as_ref())?;
+        let f = BufReader::new(f);
+
+        for line in f.lines() {
+            println!("{}", line.unwrap());
+        }
+        debug!("remote_file: {:?}", remote_path);
+//        self.ssh_client.session.scp_send(
+//            remote_path,
+//            mode,
+//            size,
+//            None,
+//        )?;
         Ok(())
     }
 

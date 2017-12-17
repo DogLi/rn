@@ -12,14 +12,9 @@ use slog::{Level, Drain};
 
 pub fn get_global_log(log_level: i8, log_path: Option<PathBuf>) -> Result<slog::Logger> {
     let log_level = match log_level {
-        0 => Level::Critical,
-        1 => Level::Error,
-        2 => Level::Warning,
-        3 => Level::Info,
-        4 => Level::Debug,
-        n if n > 5 => Level::Trace,
-        n if n < 0 => Level::Critical,
-        _ => Level::Debug,
+        0 => Level::Info,
+        1 => Level::Debug,
+        _ => Level::Trace,
     };
 
     let decorator = slog_term::TermDecorator::new().build();

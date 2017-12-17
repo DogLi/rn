@@ -70,8 +70,8 @@ fn main() {
         identity,
     )
     {
-        if log_level <= 2 {
-            println!("error: {}", e);
+        if log_level == 0 {
+            error!("error: {}", e);
             std::process::exit(1);
         }
         error!("error: {}", e);

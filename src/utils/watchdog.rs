@@ -113,6 +113,9 @@ impl<'a, 'b> WatchDog<'a, 'b> {
                     info!(" ' {:?} ' changed, upload it", path);
                     return Ok(());
                 } else {
+                    let dest_path_buf = self.get_dest_path_buf(path)?;
+                    let dest_path = dest_path_buf.as_path();
+                    self.sftp.upload_file(path, dest_path)?;
                     info!("notice write: {:?}", path);
                 }
             }
