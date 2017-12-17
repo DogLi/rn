@@ -1,4 +1,5 @@
 [![LICENSE](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build Status](https://travis-ci.org/DogLi/rn.svg?branch=master)](https://travis-ci.org/DogLi/rn)
 # rn
 `rn` is a tool used for transforming file/folder to remote server when the file/folder change in real time based on `rsync`. Currently `linux` and `MacOS` support only!
 
@@ -121,7 +122,7 @@ By default, `rn` will exit after transformed the file. When `-w` set, `rn` will 
 # requirements
 You should install `rsync` and `sshpass` on local host and `rsync` on remote host.
 ```
-brew install rsync  
+brew install rsync
 brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
 ```
 
