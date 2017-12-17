@@ -1,6 +1,5 @@
 use errors::*;
 use super::{sshconfig, rsync, toml_parser};
-use std::path::Path;
 use std::time::Duration;
 use std::sync::mpsc::{Sender, Receiver};
 use notify::{self, Watcher, RecursiveMode, DebouncedEvent, RecommendedWatcher};

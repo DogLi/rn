@@ -26,7 +26,7 @@ pub fn sync(host: &Host, project: &Project, delete: bool) -> io::Result<()> {
                 }
                 Some(ref password) => {
                     login_strings = format!(
-                        r#"sshpass -p {} ssh  -l {} -p {}"#,
+                        r#"sshpass -p {} ssh  -l {} -p {} -o "StrictHostKeyChecking no" -o "ConnectTimeout=2""#,
                         password,
                         username,
                         host.port

@@ -2,16 +2,14 @@ pub mod utils;
 pub mod errors;
 pub mod my_logger;
 
-extern crate glob;
+extern crate regex;
 extern crate serde;
 extern crate notify;
-extern crate regex;
 extern crate toml;
 extern crate shellexpand;
 
 
-#[macro_use(slog_o, slog_debug, slog_info, slog_warn, slog_error, slog_crit, slog_log,
-            slog_record, slog_record_static, slog_b, slog_kv)]
+#[macro_use]
 extern crate slog;
 #[macro_use]
 extern crate slog_scope;
@@ -28,7 +26,6 @@ use errors::*;
 use utils::*;
 use std::path::Path;
 use std::sync::mpsc::channel;
-use toml_parser::Project;
 use shellexpand::{tilde, tilde_with_context};
 
 
@@ -140,7 +137,9 @@ pub fn run(
     rsync::sync(&host, &project, true)?;
 
     //start watch
-    start_watch(&project, &host)?;
+    if watch {
+        start_watch(&project, &host)?;
+    }
 
     Ok(())
 }

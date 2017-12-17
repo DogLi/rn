@@ -59,7 +59,7 @@ pub fn realpath(original: &Path) -> io::Result<PathBuf> {
 }
 
 #[cfg(unix)]
-pub fn realpath(original: &Path) -> io::Result<PathBuf> {
+pub fn realpath(original: &Path) -> Result<PathBuf> {
     //use libc;
     info!("find real path for {:?}", original);
     use std::ffi::{OsString, CString};
@@ -77,12 +77,17 @@ pub fn realpath(original: &Path) -> io::Result<PathBuf> {
     unsafe {
         let r = realpath(path.as_ptr(), buf.as_mut_ptr() as *mut _);
         if r.is_null() {
-            return Err(io::Error::last_os_error());
+            return Err(io::Error::last_os_error().into());
         }
     }
-    let p = buf.iter().position(|i| *i == 0).unwrap();
-    buf.truncate(p);
-    Ok(PathBuf::from(OsString::from_vec(buf)))
+    // TODO: use ? in nightly
+    match buf.iter().position(|i| *i == 0) {
+        None => {bail!("error when get real path")},
+        Some(p) => {
+            buf.truncate(p);
+            Ok(PathBuf::from(OsString::from_vec(buf)))
+        }
+    }
 }
 
 #[cfg(test)]
