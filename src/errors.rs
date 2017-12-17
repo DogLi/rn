@@ -1,18 +1,18 @@
-extern crate regex;
 extern crate toml;
-extern crate ssh2;
 extern crate notify;
+extern crate regex;
 
-use std::{io, num};
+use std::{self, io, num};
 use std::convert::From;
 use std::path::StripPrefixError;
 
 error_chain! {
     foreign_links {
-        Format(regex::Error);
+        FfiNulError(std::ffi::NulError);
+//        OptionNone(std::option::NoneError);
+        Regex(regex::Error);
         Io(io::Error);
         Toml(toml::de::Error);
-        SSHError(ssh2::Error);
         PathError(StripPrefixError);
         NumParseError(num::ParseIntError);
         NotifyError(notify::Error);
