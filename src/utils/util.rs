@@ -59,15 +59,17 @@ pub fn realpath(original: &Path) -> io::Result<PathBuf> {
 }
 
 #[cfg(unix)]
-pub fn realpath(original: &Path) -> io::Result<PathBuf>{
+pub fn realpath(original: &Path) -> io::Result<PathBuf> {
     //use libc;
     info!("find real path for {:?}", original);
     use std::ffi::{OsString, CString};
     use std::os::unix::prelude::*;
 
-    extern {
-        fn realpath(pathname: *const libc::c_char, resolved: *mut libc::c_char)
-                    -> *mut libc::c_char;
+    extern "C" {
+        fn realpath(
+            pathname: *const libc::c_char,
+            resolved: *mut libc::c_char,
+        ) -> *mut libc::c_char;
     }
 
     let path = CString::new(original.as_os_str().as_bytes())?;
@@ -75,7 +77,7 @@ pub fn realpath(original: &Path) -> io::Result<PathBuf>{
     unsafe {
         let r = realpath(path.as_ptr(), buf.as_mut_ptr() as *mut _);
         if r.is_null() {
-            return Err(io::Error::last_os_error())
+            return Err(io::Error::last_os_error());
         }
     }
     let p = buf.iter().position(|i| *i == 0).unwrap();
@@ -166,7 +168,7 @@ mod tests {
         match realpath(path) {
             Ok(path_buf) => {
                 assert_eq!(path_buf, PathBuf::from("/private/tmp/a"));
-            },
+            }
             Err(e) => {
                 panic!("{:?}", e);
             }

@@ -145,7 +145,7 @@ pub fn get_ip<T: AsRef<str>>(hostname: T) -> Result<String> {
 
 pub fn servername2ip(servername: &str) -> String {
     let address = &(servername, 22).to_socket_addrs().unwrap().next();
-//    let add = address.next();
+    //    let add = address.next();
     let ip = match *address {
         Some(SocketAddr::V4(ref a)) => format!("{:?}", a.ip()),
         Some(SocketAddr::V6(ref a)) => format!("{:?}", a.ip()),

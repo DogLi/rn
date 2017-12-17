@@ -32,11 +32,7 @@ use toml_parser::Project;
 use shellexpand::{tilde, tilde_with_context};
 
 
-fn start_watch(
-    project: &toml_parser::Project,
-    host: &sshconfig::Host,
-) -> Result<()>
-{
+fn start_watch(project: &toml_parser::Project, host: &sshconfig::Host) -> Result<()> {
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
         project,
@@ -101,7 +97,7 @@ pub fn run(
         Some(p) => {
             host.password = Some(p.to_string());
             host.identityfile = None;
-        },
+        }
         None => {}
     }
 
@@ -109,14 +105,14 @@ pub fn run(
         Some(i) => {
             host.identityfile = Some(Path::new(i).to_path_buf());
             host.password = None;
-        },
+        }
         None => {}
     }
 
     match port {
         Some(p) => {
             host.port = p;
-        },
+        }
         None => {}
     }
 
@@ -133,7 +129,7 @@ pub fn run(
         Some(Path::new(&common_home))
     }).into_owned();
 
-//    let src_path = Path::new(project.src);
+    //    let src_path = Path::new(project.src);
     // if src_path is link such as /tmp in MacOS, change it to real path, which is /private/tmp
     let real_path_buf = util::realpath(Path::new(&project.src))?;
     let src_root = real_path_buf.into_os_string().into_string().unwrap();
@@ -141,17 +137,10 @@ pub fn run(
     project.src = src_root;
     project.dest = dest_root;
 
-    rsync::sync(
-        &host,
-        &project,
-        true,
-    )?;
+    rsync::sync(&host, &project, true)?;
 
     //start watch
-    start_watch(
-        &project,
-        &host,
-    )?;
+    start_watch(&project, &host)?;
 
     Ok(())
 }

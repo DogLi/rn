@@ -5,12 +5,7 @@ use super::sshconfig::servername2ip;
 use super::sshconfig::Host;
 use super::toml_parser::Project;
 
-pub fn sync(
-    host: &Host,
-    project: &Project,
-    delete: bool,
-) -> io::Result<()>
-{
+pub fn sync(host: &Host, project: &Project, delete: bool) -> io::Result<()> {
     let username = &host.user;
     let path = Path::new(project.src.as_str());
     let file_type = fs::metadata(path)?.file_type();
@@ -30,7 +25,12 @@ pub fn sync(
                     panic!("no password or identifile was set!");
                 }
                 Some(ref password) => {
-                    login_strings = format!(r#"sshpass -p {} ssh  -l {} -p {}"#, password, username, host.port);
+                    login_strings = format!(
+                        r#"sshpass -p {} ssh  -l {} -p {}"#,
+                        password,
+                        username,
+                        host.port
+                    );
                 }
             }
         }
@@ -78,52 +78,40 @@ mod tests {
     use shellexpand::tilde;
     use std::path::{Path, PathBuf};
 
-//    #[test]
-//    fn test_sync() {
-//        let host = Host{
-//            "ubuntu",
-//            "ubuntu",
-//            "~/.ssh/.id_rsa",
-//            None,
-//            2222,
-//        };
-//
-//        let project = Project {
-//            "test".to_string(),
-//            "/tmp/a".to_string(),
-//            "/home/ubuntu/a".to_string(),
-//            vec!["a.txt", "b.txt", "c.txt"];
-//        }
-//
-//
-//        // test use identity file
-//        let id = tilde("~/.ssh/id_rsa.bak").into_owned();
-//        let id_file = Path::new(id.as_str());
-//        let password = None::<&str>;
-//        if let Err(e) = sync(
-//            host,
-//            project,
-//            true,
-//        )
-//        {
-//            assert!(false, "rsync test indentity file failed");
-//        } else {
-//            assert!(true);
-//        }
-//
-//        // test use password
-//        let id = None::<PathBuf>;
-//        let password = Some("nogame");
-//        let exclude_files = vec!["a.txt", "b.txt", "c.txt"];
-//        if let Err(e) = sync(
-//            host,
-//            project,
-//            true,
-//        )
-//        {
-//            assert!(false, "rsync test password failed");
-//        } else {
-//            assert!(true);
-//        }
-//    }
+    #[test]
+    fn test_sync() {
+        let id = tilde("~/.ssh/id_rsa").into_owned();
+        let host = Host::new("ubuntu", "ubuntu", Some(PathBuf::from(id)), None, Some(2222));
+        let project = Project {
+            name: "test".to_string(),
+            src: "/tmp/a".to_string(),
+            dest: "/home/ubuntu/a".to_string(),
+            exclude: Some(vec![
+                "a.txt".to_string(),
+                "b.txt".to_string(),
+            ]),
+        };
+
+        if let Err(e) = sync(&host, &project, true) {
+            assert!(false, "rsync test password failed");
+        } else {
+            assert!(true);
+        }
+
+        let host = Host::new("ubuntu", "ubuntu", None::<PathBuf>, Some("ubuntu"), Some(2222));
+        let project = Project {
+            name: "test".to_string(),
+            src: "/tmp/b".to_string(),
+            dest: "/home/ubuntu/b".to_string(),
+            exclude: Some(vec![
+                "a.txt".to_string(),
+                "b.txt".to_string(),
+            ]),
+        };
+        if let Err(e) = sync(&host, &project, true) {
+            assert!(false, "rsync test password failed");
+        } else {
+            assert!(true);
+        }
+    }
 }

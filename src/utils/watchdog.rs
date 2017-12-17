@@ -39,7 +39,10 @@ impl<'a, 'b> WatchDog<'a, 'b> {
     pub fn start(&mut self) -> notify::Result<()> {
         let mut watcher: RecommendedWatcher =
             Watcher::new(self.tx.clone(), Duration::from_secs(2))?;
-        watcher.watch(self.project.src.as_str(), RecursiveMode::Recursive)?;
+        watcher.watch(
+            self.project.src.as_str(),
+            RecursiveMode::Recursive,
+        )?;
         loop {
             self.watch();
         }
@@ -47,15 +50,12 @@ impl<'a, 'b> WatchDog<'a, 'b> {
 
     fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()> {
         match event {
-            &DebouncedEvent::NoticeWrite(ref path) | &DebouncedEvent::NoticeRemove(ref path)=> {
+            &DebouncedEvent::NoticeWrite(ref path) |
+            &DebouncedEvent::NoticeRemove(ref path) => {
                 info!("do nothing");
             }
             _ => {
-                rsync::sync(
-                    self.host,
-                    self.project,
-                    true,
-                )?;
+                rsync::sync(self.host, self.project, true)?;
                 info!("do rsync!");
             }
         }

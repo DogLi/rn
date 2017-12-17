@@ -34,9 +34,7 @@ fn main() {
     let identity = matches.value_of("identity");
     let log_path = matches.value_of("log");
     let port: Option<u16> = match matches.value_of("port") {
-        Some(p) => {
-            Some(p.parse().unwrap())
-        },
+        Some(p) => Some(p.parse().unwrap()),
         None => None,
     };
 
