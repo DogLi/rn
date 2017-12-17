@@ -1,10 +1,8 @@
 pub mod utils;
 pub mod errors;
 pub mod my_logger;
-pub mod rsync;
 
 extern crate glob;
-extern crate ssh2;
 extern crate serde;
 extern crate notify;
 extern crate regex;
@@ -28,64 +26,25 @@ extern crate serde_derive;
 
 use errors::*;
 use utils::*;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::mpsc::channel;
-use std::fs;
-use regex::Regex;
+use toml_parser::Project;
 use shellexpand::{tilde, tilde_with_context};
 
 
 fn start_watch(
-    src_path: &Path,
-    dest_root: &Path,
-    sftp: &ssh::SftpClient,
-    exclude_files: &mut Vec<PathBuf>,
-    include_files: &mut Vec<PathBuf>,
-    re_vec: &Vec<Regex>,
-) -> Result<()> {
-    info!("watching path: {:?}", src_path);
+    project: &toml_parser::Project,
+    host: &sshconfig::Host,
+) -> Result<()>
+{
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
-        src_path: src_path,
-        dest_root: dest_root,
+        project,
+        host,
         tx: tx,
         rx: rx,
-        sftp: sftp,
-        exclude_files: exclude_files,
-        include_files: include_files,
-        re_vec: re_vec,
     };
     watchdog.start()?;
-    Ok(())
-}
-
-
-fn get_file_ignored(
-    root: &Path,
-    re_vec: &Vec<Regex>,
-    exclude_files: &mut Vec<PathBuf>,
-    include_files: &mut Vec<PathBuf>,
-) -> Result<()> {
-    if util::is_exclude(&root, re_vec) {
-        info!("find unignored path: {:?}", root.as_os_str());
-        exclude_files.push(root.to_path_buf())
-    } else {
-        include_files.push(root.to_path_buf())
-    }
-    if !root.metadata()?.file_type().is_dir() {
-        for entry in fs::read_dir(root)? {
-            let entry = entry?;
-            let path_buf = entry.path();
-            if util::is_exclude(path_buf.as_path(), re_vec) {
-                exclude_files.push(path_buf.clone());
-            } else {
-                include_files.push(path_buf.clone());
-            }
-            if path_buf.is_dir() {
-                get_file_ignored(path_buf.as_path(), re_vec, exclude_files, include_files)?;
-            }
-        }
-    }
     Ok(())
 }
 
@@ -101,7 +60,7 @@ pub fn run(
 ) -> Result<()> {
     let global_config = toml_parser::get_config(config_path)?;
     debug!("global config: {:?}", global_config);
-    let project = toml_parser::get_project_info(project_name, &global_config)?;
+    let mut project = toml_parser::get_project_info(project_name, &global_config)?;
     debug!("get project: {:?}", project);
 
     let ssh_conf_path = tilde("~/.ssh/config").into_owned();
@@ -162,17 +121,6 @@ pub fn run(
     }
 
     debug!("get host: {:?}, port {:?}", host, port);
-    // TODO: use RC
-    let tmp_host = host.clone();
-    let sshclient = ssh::SSHClient::new(
-        tmp_host.hostname,
-        tmp_host.port,
-        tmp_host.user,
-        tmp_host.password,
-        tmp_host.identityfile,
-    )?;
-
-    let sftpclient = ssh::SftpClient::new(&sshclient);
 
     // change ~ to /home/user or /root in dest path
     let common_home = match host.user.as_str() {
@@ -184,56 +132,26 @@ pub fn run(
     } else {
         Some(Path::new(&common_home))
     }).into_owned();
-    let dest_str = dest_root.as_str();
-    info!("dest path: {}", dest_str);
-    let dest_path = Path::new(dest_str);
 
-    // get ignore dir
-    let mut exclude_files = Vec::new();
-    let mut include_files = Vec::new();
-    let mut re_vec: Vec<Regex> = Vec::new();
-    match project.exclude {
-        None => {}
-        Some(ref vec) => {
-            for v in vec.iter() {
-                let re = util::create_re(v.as_str());
-                if re.is_some() {
-                    re_vec.push(re.unwrap());
-                }
-            }
-        }
-    }
-    debug!("exclude setting: {:?}", re_vec);
-
-    let src_path = Path::new(&project.src);
+//    let src_path = Path::new(project.src);
     // if src_path is link such as /tmp in MacOS, change it to real path, which is /private/tmp
-    let real_path_buf = util::realpath(src_path)?;
-    let src_path = real_path_buf.as_path();
+    let real_path_buf = util::realpath(Path::new(&project.src))?;
+    let src_root = real_path_buf.into_os_string().into_string().unwrap();
 
-    debug!("source file: {:?}", src_path);
-    get_file_ignored(src_path, &re_vec, &mut exclude_files, &mut include_files)?;
+    project.src = src_root;
+    project.dest = dest_root;
 
     rsync::sync(
-        host.identityfile,
-        host.password,
-        host.port,
-        project.src.as_str(),
-        dest_str,
-        host.user.as_str(),
-        host.hostname.as_str(),
+        &host,
+        &project,
         true,
-        project.exclude,
     )?;
 
     //start watch
     start_watch(
-        src_path,
-        dest_path,
-        &sftpclient,
-        &mut exclude_files,
-        &mut include_files,
-        &re_vec,
-    );
+        &project,
+        &host,
+    )?;
 
     Ok(())
 }
