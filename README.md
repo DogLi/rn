@@ -121,6 +121,9 @@ By default, `rn` will exit after transformed the file. When `-w` set, `rn` will 
 
 # requirements
 You should install `rsync` and `sshpass` on local host and `rsync` on remote host.
+
+On MacOS:
+
 ```
 brew install rsync
 brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
