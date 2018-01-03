@@ -34,7 +34,7 @@ The default config file is `~/bin/settings.toml`, which contains the `project` s
 ```toml
 global_user = "root"
 global_key = "~/.ssh/id_rsa"
-#global_password = "nogame"
+#global_password = "test"
 
 [[projects]]
 name = "default"
