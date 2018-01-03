@@ -1,6 +1,6 @@
 global_user = "root"
 global_key = "~/.ssh/id_rsa"
-#global_password = "nogame"
+#global_password = "test"
 
 [[projects]]
 name = "default"
