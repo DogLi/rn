@@ -2,7 +2,7 @@ use clap;
 
 pub fn get_args() -> clap::ArgMatches<'static> {
     clap::App::new("rn")
-        //.setting(clap::AppSettings::SubcommandRequiredElseHelp)
+        .global_settings(&[clap::AppSettings::ColoredHelp])
         .version(crate_version!())
         .author(crate_authors!())
         .about("a realtime file transformer.")
