@@ -22,6 +22,7 @@ pub struct Project {
     pub name: String,
     pub src: String,
     pub dest: String,
+    pub is_delete: bool,
     pub exclude: Option<Vec<String>>,
 }
 

@@ -13,8 +13,8 @@ pub struct WatchDog<'a, 'b> {
 
 
 impl<'a, 'b> WatchDog<'a, 'b> {
-    fn handle_events(&mut self, event: &DebouncedEvent) {
-        if let Err(ref e) = self.do_handle_events(event) {
+    fn handle_events(&mut self, event: &DebouncedEvent, delete: bool) {
+        if let Err(ref e) = self.do_handle_events(event, delete) {
             error!("error: {}", e);
             for e in e.iter().skip(1) {
                 error!("caused by: {}", e);
@@ -25,17 +25,17 @@ impl<'a, 'b> WatchDog<'a, 'b> {
         }
     }
 
-    fn watch(&mut self) {
+    fn watch(&mut self, delete: bool) {
         // block to wait file change
         match self.rx.recv() {
             Ok(event) => {
-                self.handle_events(&event);
+                self.handle_events(&event, delete);
             }
             Err(e) => error!("watch error: {:?}", e),
         }
     }
 
-    pub fn start(&mut self) -> notify::Result<()> {
+    pub fn start(&mut self, delete: bool) -> notify::Result<()> {
         let mut watcher: RecommendedWatcher =
             Watcher::new(self.tx.clone(), Duration::from_secs(2))?;
         watcher.watch(
@@ -43,11 +43,11 @@ impl<'a, 'b> WatchDog<'a, 'b> {
             RecursiveMode::Recursive,
         )?;
         loop {
-            self.watch();
+            self.watch(delete);
         }
     }
 
-    fn do_handle_events(&mut self, event: &DebouncedEvent) -> Result<()> {
+    fn do_handle_events(&mut self, event: &DebouncedEvent, delete: bool) -> Result<()> {
         match event {
             &DebouncedEvent::NoticeWrite(ref _path) |
             &DebouncedEvent::NoticeRemove(ref _path) => {},
@@ -55,7 +55,7 @@ impl<'a, 'b> WatchDog<'a, 'b> {
                 error!("error in event: file: {:?}, error: {:?}", &path, e);
             },
             _ => {
-                rsync::sync(self.host, self.project, true)?;
+                rsync::sync(self.host, self.project, delete)?;
             }
         }
         Ok(())

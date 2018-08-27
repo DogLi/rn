@@ -33,6 +33,7 @@ fn main() {
     let password = matches.value_of("password");
     let identity = matches.value_of("identity");
     let log_path = matches.value_of("log");
+    let delete = matches.occurrences_of("delete") == 1;
     let port: Option<u16> = match matches.value_of("port") {
         Some(p) => Some(p.parse().unwrap()),
         None => None,
@@ -65,6 +66,7 @@ fn main() {
         password,
         port,
         identity,
+        delete,
     )
     {
         if log_level == 0 {

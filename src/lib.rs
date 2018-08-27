@@ -29,7 +29,7 @@ use std::sync::mpsc::channel;
 use shellexpand::{tilde, tilde_with_context};
 
 
-fn start_watch(project: &toml_parser::Project, host: &sshconfig::Host) -> Result<()> {
+fn start_watch(project: &toml_parser::Project, host: &sshconfig::Host, delete: bool) -> Result<()> {
     let (tx, rx) = channel();
     let mut watchdog = watchdog::WatchDog {
         project,
@@ -37,7 +37,7 @@ fn start_watch(project: &toml_parser::Project, host: &sshconfig::Host) -> Result
         tx: tx,
         rx: rx,
     };
-    watchdog.start()?;
+    watchdog.start(delete)?;
     Ok(())
 }
 
@@ -50,6 +50,7 @@ pub fn run(
     password: Option<&str>,
     port: Option<u16>,
     identity: Option<&str>,
+    delete: bool,
 ) -> Result<()> {
     let global_config = toml_parser::get_config(config_path)?;
     debug!("global config: {:?}", global_config);
@@ -127,11 +128,11 @@ pub fn run(
     }).into_owned();
 
     project.dest = dest_root;
-    rsync::sync(&host, &project, true)?;
+    rsync::sync(&host, &project, delete)?;
 
     //start watch
     if watch {
-        start_watch(&project, &host)?;
+        start_watch(&project, &host, delete)?;
     }
 
     Ok(())
