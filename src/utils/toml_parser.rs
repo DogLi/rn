@@ -5,6 +5,7 @@ use std::path::Path;
 use utils::util::load_file;
 use std::cmp::PartialEq;
 use shellexpand::tilde;
+use std::env::current_dir;
 
 
 
@@ -14,6 +15,8 @@ pub struct GlobalConfig {
     pub global_password: Option<String>,
     pub global_key: Option<String>,
     pub global_port: Option<u16>,
+    pub global_dest_root: String,
+    pub global_exclude: Option<Vec<String>>,
     pub projects: Option<Vec<Project>>,
 }
 
@@ -38,12 +41,29 @@ pub fn get_config(toml_path: &Path) -> Result<GlobalConfig> {
     Ok(g_config)
 }
 
+fn get_project_current_path(config: &GlobalConfig) -> Result<Project> {
+    let current_path = current_dir()?;
+    let dir_name = current_path.file_name().unwrap();
+    let dir_name = dir_name.to_string_lossy();
+    let dest_dir = Path::new(&config.global_dest_root).join(dir_name.to_string());
+    let src: String = current_path.to_str().unwrap().to_string();
+    let dest: String = dest_dir.to_str().unwrap().to_string();
+    let project = Project {
+        name: ".".to_string(),
+        src,
+        dest,
+        exclude: config.global_exclude.clone(),
+    };
+    Ok(project)
+}
 
 pub fn get_project_info<S>(project_name: S, config: &GlobalConfig) -> Result<Project>
 where
     S: AsRef<str> + Debug + PartialEq,
 {
-    if config.projects.is_some() {
+    if project_name.as_ref() == "." {
+        return get_project_current_path(config)
+    } else if config.projects.is_some() {
         for project in config.projects.as_ref().unwrap() {
             if project.name == project_name.as_ref() {
                 let mut info = project.clone();
@@ -52,7 +72,6 @@ where
             }
         }
     }
-
     bail!(format!("Can not find project {:?}", project_name));
 }
 
